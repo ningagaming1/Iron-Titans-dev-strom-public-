@@ -31,6 +31,38 @@ sys.path.insert(0, HERE)
 MIN_PYTHON = (3, 7)
 
 
+def _use_voice_venv():
+    """
+    If the offline-voice virtual-env (./.venv) exists and has the voice
+    packages, hop into it automatically - so plain `python main.py` gets
+    working speech instead of silently falling back to the browser engine.
+    """
+    if os.environ.get("SMARTHOME_NO_REEXEC"):
+        return
+    try:
+        import vosk, piper           # noqa: F401  - already good, stay put
+        return
+    except ImportError:
+        pass
+
+    import subprocess
+    for cand in (os.path.join(HERE, ".venv", "bin", "python"),
+                 os.path.join(HERE, "venv", "bin", "python")):
+        if not os.path.isfile(cand):
+            continue
+        probe = subprocess.run([cand, "-c", "import vosk, piper"],
+                               capture_output=True)
+        if probe.returncode == 0:
+            print(f"[main] using {os.path.relpath(cand, HERE)} for offline voice\n",
+                  flush=True)
+            os.environ["SMARTHOME_NO_REEXEC"] = "1"
+            os.execv(cand, [cand, *sys.argv])
+    # no usable venv - carry on; voice just uses the browser engine
+
+
+_use_voice_venv()
+
+
 # -------------------------------------------------------------------
 #  small helpers
 # -------------------------------------------------------------------
@@ -246,6 +278,18 @@ def main(argv=None):
         if args.debug:
             traceback.print_exc()
         die(f"startup failed: {e}")
+
+    line("voice")
+    try:
+        import voice
+        st = voice.status()
+        if st["ready"]:
+            print(f"  offline speech ready (Vosk + Piper, pitch x{st['pitch']})")
+        else:
+            print(f"  offline speech OFF - {st['hint']}")
+            print("  the browser's own speech engine is used until then")
+    except Exception as e:
+        print(f"  voice module unavailable: {e}")
 
     line("result")
     if failures:

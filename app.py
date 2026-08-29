@@ -6,6 +6,11 @@ import login2
 import devices
 import intent
 
+try:
+    import voice                     # offline STT + TTS (optional deps)
+except Exception:                    # missing package shouldn't stop the app
+    voice = None
+
 # folder this file lives in - so it works no matter which
 # directory you run "python app.py" from
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,6 +37,9 @@ os.chdir(HERE)
 #    POST /api/devices/set   {username, device, value}
 #    POST /api/command       {username, text}      -> text -> intent -> house
 #    POST /api/activity/clear {username}
+#    GET  /api/voice/status                        -> {stt, tts, ready, ...}
+#    POST /api/voice         (raw audio body)      -> mic -> text -> house -> spoken reply
+#    POST /api/voice/tts     {text}                -> audio/wav of that text
 # =============================================================
 
 PORT = 8000
@@ -94,6 +102,18 @@ class Handler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             return {}
 
+    def _read_raw(self):
+        length = int(self.headers.get("Content-Length", 0))
+        return self.rfile.read(length) if length else b""
+
+    def _send_wav(self, wav_bytes):
+        self.send_response(200)
+        self.send_header("Content-Type", "audio/wav")
+        self.send_header("Content-Length", str(len(wav_bytes)))
+        self._cors()
+        self.end_headers()
+        self.wfile.write(wav_bytes)
+
     # ---- GET: pages, assets, read-only data ------------------
     def do_GET(self):
         route = self.path.split("?")[0].rstrip("/") or "/"
@@ -109,6 +129,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"dev_mode": login2.DEV_MODE})
         elif route == "/api/devices":
             self._send_json({"ok": True, "house": devices.get_state()})
+        elif route == "/api/voice/status":
+            self._send_json(voice.status() if voice else
+                            {"stt": False, "tts": False, "ready": False,
+                             "hint": "voice.py failed to import"})
         elif route.startswith("/api/"):
             self._send_json({"ok": False, "message": "unknown endpoint"}, 404)
         else:
@@ -117,6 +141,11 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- POST: the API --------------------------------------
     def do_POST(self):
+        # /api/voice carries a raw audio body, not JSON - handle it first
+        if self.path.split("?")[0] == "/api/voice":
+            self._handle_voice()
+            return
+
         data = self._read_body()
         username = str(data.get("username", "")).strip()
         password = str(data.get("password", ""))
@@ -188,8 +217,45 @@ class Handler(BaseHTTPRequestHandler):
             ok, house = devices.clear_activity(who)
             self._send_json({"ok": ok, "house": house})
 
+        elif self.path == "/api/voice/tts":
+            text = str(data.get("text", "")).strip()
+            if not voice or not voice.status().get("tts"):
+                self._send_json({"ok": False, "message": "server TTS not set up"}, 503)
+            elif not text:
+                self._send_json({"ok": False, "message": "no text"}, 400)
+            else:
+                try:
+                    self._send_wav(voice.synthesize(text))
+                except Exception as e:
+                    self._send_json({"ok": False, "message": str(e)}, 500)
+
         else:
             self._send_json({"ok": False, "message": "unknown endpoint"}, 404)
+
+    # ---- voice: mic audio -> text -> house -> spoken reply ----
+    def _handle_voice(self):
+        raw = self._read_raw()
+        from urllib.parse import parse_qs, urlparse
+        qs = parse_qs(urlparse(self.path).query)
+        who = (qs.get("user", [""])[0]).strip() or "someone"
+        if not voice or not voice.status().get("stt"):
+            self._send_json({"ok": False, "offline": True,
+                             "message": "server voice not set up - run voice_setup.py"}, 503)
+            return
+        if not raw:
+            self._send_json({"ok": False, "message": "empty audio"}, 400)
+            return
+        try:
+            result = voice.handle(raw, who)
+        except Exception as e:
+            self._send_json({"ok": False, "message": str(e)}, 500)
+            return
+
+        wav = result.pop("audio_wav", None)
+        if wav:
+            import base64
+            result["audio_b64"] = base64.b64encode(wav).decode("ascii")
+        self._send_json(result)
 
     def log_message(self, fmt, *args):
         print("  ", self.command, self.path.split("?")[0])

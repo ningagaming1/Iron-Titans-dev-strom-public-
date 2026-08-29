@@ -3,3 +3,13 @@ __pycache__/
 
 # machine-local developer-mode toggle, written at runtime
 data/users/settings.json
+
+# downloaded offline voice models (~100 MB) - run  python voice_setup.py
+data/models/
+
+# local virtual-env for the optional voice deps
+venv/
+.venv/
+
+# scratch output from  python voice.py
+voice_test.wav
