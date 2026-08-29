@@ -101,9 +101,23 @@ class TextToSpeech:
 
 
 
-# STT -> website -> backend flow
+#welcomes user
+def welcome():
+    recognized_text = "Welcome to SyncGhar."
 
+    tts = TextToSpeech(engine="offline")   # switch to "online" if you want gTTS
+
+    # user will rehear 
+    tts.speak(recognized_text)
+
+    #Save the confirmed text as audio too, in case the backend
+    # expects an audio file with the transcript
+    audio_path = tts.save(recognized_text, filename="confirmed_output.wav")
+    print(f"Saved audio for backend at: {audio_path}")
+
+# STT -> website -> backend flow
 if __name__ == "__main__":
+    welcome()
     recognized_text = "This is the text that came from the speech to text module."
 
     tts = TextToSpeech(engine="offline")   # switch to "online" if you want gTTS
