@@ -1,0 +1,13 @@
+# SmartHome - the CORE app (app.py / main.py) needs NOTHING here; it runs
+# on the Python standard library alone.
+#
+# These are only for OPTIONAL offline server-side voice (voice.py):
+#   1. pip install -r requirements.txt
+#   2. python voice_setup.py            # one-time model download (~100 MB)
+#   3. also install ffmpeg on your system  (Arch: sudo pacman -S ffmpeg)
+#
+# Without them the mic still works - the browser's own Web Speech engine
+# is used as a fallback.
+
+vosk==0.3.45          # offline speech-to-text
+piper-tts==1.7.0      # offline neural text-to-speech (natural voice)
