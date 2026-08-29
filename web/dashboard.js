@@ -1,19 +1,12 @@
-/* -----------------------------------------------------------
-   dashboard.js - the control panel.
-
-   Voice path:
-     * browser speech -> the browser's own Web Speech API turns
-                         your words into text
-     * not supported  -> mic is disabled, typing still works
-
-   Whatever produces the text, the server's intent.py decides
-   what it means and devices.py flips the switch.
------------------------------------------------------------ */
+/* dashboard.js - the control panel.
+   voice: browser Web Speech turns words into text; if it's not
+   supported the mic is disabled and typing still works. either way
+   the server's intent.py decides what it means. */
 
 const $ = (id) => document.getElementById(id);
 const API = location.protocol === "file:" ? "http://localhost:8000" : "";
 
-/* ---------- session ---------- */
+/* session */
 let user = null;
 try { user = JSON.parse(localStorage.getItem("smarthome_user")); } catch (e) {}
 if (!user || !user.username) {
@@ -26,7 +19,7 @@ $("role").textContent = user.is_admin ? "admin" : "member";
 $("avatar").textContent = user.username.charAt(0).toUpperCase();
 $("welcomeName").textContent = user.username;
 
-/* ---------- server helpers ---------- */
+/* server helpers */
 async function getJSON(path) {
   try { return await (await fetch(API + path)).json(); }
   catch (e) { return { ok: false, offline: true }; }
@@ -43,7 +36,7 @@ async function post(path, body) {
   }
 }
 
-/* ---------- drawing the house ---------- */
+/* drawing the house */
 const ICONS = { light: "💡", fan: "🌀", lock: "🔒", unlock: "🔓", bulk: "⚡", night: "🌙", info: "•" };
 let house = { light: false, fan: false, door_locked: true, activity: [] };
 
@@ -55,24 +48,22 @@ function render(h) {
   card("light", h.light);
   card("fan", h.fan);
 
-  // door: bolt icon + label follow the lock state
+  // door: icon + label follow the lock state
   $("doorState").textContent = h.door_locked ? "LOCKED" : "UNLOCKED";
   $("doorState").classList.toggle("on", h.door_locked);
   $("doorBtn").textContent = h.door_locked ? "Unlock Door" : "Lock Door";
   $("doorIcon").textContent = h.door_locked ? "🔒" : "🔓";
   $("doorCard").classList.toggle("locked", h.door_locked);
 
-  // one-shot animations - fire ONLY when that device actually changed,
-  // so the 5s auto-refresh doesn't keep re-triggering them.
+  // one-shot animations - only when that device actually changed, so the
+  // 5s auto-refresh doesnt keep re-firing them. (fan spin is pure CSS.)
   if (h.light !== prev.light && h.light) playAnim("lightCard", "flick");
   if (h.door_locked !== prev.door_locked) playAnim("doorCard", "clunk");
-  // the fan's spin is a continuous CSS animation tied to #fanCard.on
 
   const applianceCount = (h.light ? 1 : 0) + (h.fan ? 1 : 0);
   $("deviceCount").textContent = applianceCount + " on";
 
-  // the LIGHT is what lights the room - the fan and door don't change
-  // the mood, so turning on the fan no longer brightens the whole page.
+  // only the light changes the room's mood
   document.body.classList.toggle("dark", !h.light);
 
   drawLog(h.activity || []);
@@ -87,7 +78,7 @@ function playAnim(cardId, name) {
   const el = $(cardId);
   if (!el) return;
   el.classList.remove("anim-flick", "anim-clunk");
-  void el.offsetWidth;               // restart the animation
+  void el.offsetWidth;               // force a reflow so the anim restarts
   el.classList.add("anim-" + name);
 }
 function drawLog(items) {
@@ -113,7 +104,7 @@ function drawLog(items) {
   });
 }
 
-/* ---------- status line ---------- */
+/* status line */
 let statusTimer = null;
 function setStatus(message, bad) {
   const el = $("status");
@@ -125,7 +116,7 @@ function setStatus(message, bad) {
 function voiceNote(text) { $("voiceNote").textContent = text; }
 function micStatus(text) { $("micStatus").textContent = text; }
 
-/* ---------- device buttons ---------- */
+/* device buttons */
 async function setDevice(device, value) {
   const data = await post("/api/devices/set", { username: user.username, device, value });
   if (data.offline) return setStatus(data.message, true);
@@ -138,7 +129,7 @@ $("allOn").onclick    = () => setDevice("all", true);
 $("allOff").onclick   = () => setDevice("all", false);
 $("lockDoor").onclick = () => setDevice("door", true);
 
-/* ---------- typed command ---------- */
+/* typed command */
 async function runText(text) {
   text = (text || "").trim();
   if (!text) return;
@@ -156,7 +147,7 @@ $("cmdForm").onsubmit = (e) => {
   $("cmdInput").value = "";
 };
 
-/* ---------- clear log + logout ---------- */
+/* clear log + logout */
 $("clearLog").onclick = async () => {
   const data = await post("/api/activity/clear", { username: user.username });
   if (!data.offline) render(data.house);
@@ -166,7 +157,7 @@ $("logout").onclick = () => {
   location.replace("index.html");
 };
 
-/* ---------- tabs ---------- */
+/* tabs */
 function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".page").forEach((p) => p.classList.toggle("active", p.id === "page-" + name));
@@ -174,7 +165,7 @@ function showTab(name) {
 }
 document.querySelectorAll(".tab").forEach((t) => { t.onclick = () => showTab(t.dataset.tab); });
 
-/* ---------- invites ---------- */
+/* invites */
 function inviteBadge(n) {
   const b = $("inviteBadge");
   b.textContent = n;
@@ -211,7 +202,7 @@ async function decide(path, name) {
 }
 $("refreshInvites").onclick = loadPending;
 
-/* ---- developer mode toggle ---- */
+/* dev mode toggle */
 async function refreshDevMode() {
   const cfg = await getJSON("/api/config");
   const on = !!(cfg && cfg.dev_mode);
@@ -231,16 +222,11 @@ $("devToggle").onchange = async () => {
   loadPending();
 };
 
-/* ===========================================================
-   VOICE
-
-   Two engines, picked automatically:
-     * "server"  - offline Vosk (speech->text) + Piper (text->speech)
-                   on the Python side. Works with no internet, natural
-                   voice. Active when /api/voice/status says ready.
-     * "browser" - the browser's own Web Speech API. Fallback when the
-                   server models aren't installed.
-=========================================================== */
+/* ===== VOICE =====
+   two engines, picked automatically:
+     "server"  - offline Vosk + Piper on the python side, no internet.
+                 used when /api/voice/status says ready.
+     "browser" - the browser's own Web Speech API. fallback. */
 let voiceEngine = "browser";      // "server" | "browser" | "off"
 let serverTTS = false;            // can the server speak replies?
 let recording = false;
@@ -255,7 +241,7 @@ function micOn(on) {
   if (!on) showListening(null);
 }
 
-/* ---------- the big red "listening" pop-up ---------- */
+/* the "listening" pop-up */
 function showListening(mode) {          // "listening" | "thinking" | null
   const o = $("listenOverlay");
   if (!o) return;
@@ -266,7 +252,7 @@ function showListening(mode) {          // "listening" | "thinking" | null
     mode === "thinking" ? "Thinking..." : "Listening...";
 }
 
-/* ---------- speak a reply out loud ---------- */
+/* speak a reply out loud */
 let ttsAudio = null;
 async function speak(text) {
   text = (text || "").trim();
@@ -289,7 +275,7 @@ async function speak(text) {
         ttsAudio.play();
         return;
       }
-    } catch (e) { /* fall through to the browser voice */ }
+    } catch (e) { /* fall back to the browser voice */ }
   }
   browserSpeak(text);
 }
@@ -299,7 +285,7 @@ function browserSpeak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
   u.rate = 1.0;
-  u.pitch = 1.15;                 // a touch higher -> warmer, less flat
+  u.pitch = 1.15;                 // a bit higher, sounds warmer
   const voices = speechSynthesis.getVoices();
   const nice = voices.find((v) => /natural|neural|google|samantha|aria|jenny/i.test(v.name))
             || voices.find((v) => v.lang && v.lang.startsWith("en"));
@@ -315,7 +301,7 @@ function playB64Wav(b64) {
   ttsAudio.play();
 }
 
-/* ---------- engine 1: server (offline Vosk + Piper) ---------- */
+/* engine 1: server (offline Vosk + Piper) */
 let micStream = null;
 let listenCtx = null;
 let listenRAF = 0;
@@ -332,7 +318,14 @@ function pickMime() {
 
 async function startServerMic() {
   try {
-    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    });
   } catch (e) {
     return setStatus("Microphone blocked. Click the camera/mic icon in the "
                      + "address bar, allow it, then reload.", true);
@@ -385,7 +378,7 @@ async function startServerMic() {
 
   mediaRec.start();
   listenMeter(micStream);                 // auto-stop when you stop talking
-  hardStop = setTimeout(stopServerMic, 10000);   // ...or after 10s no matter what
+  hardStop = setTimeout(stopServerMic, 10000);   // or after 10s regardless
 }
 
 function stopServerMic() {
@@ -393,7 +386,7 @@ function stopServerMic() {
   if (mediaRec && mediaRec.state === "recording") mediaRec.stop();
 }
 
-/* watch the mic level: stop ~1.2s after speech ends, or 6s of pure silence */
+/* watch the mic level: stop shortly after speech ends, or after silence */
 function listenMeter(stream) {
   try {
     listenCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -411,13 +404,14 @@ function listenMeter(stream) {
       for (let i = 0; i < buf.length; i++) { const v = (buf[i] - 128) / 128; sum += v * v; }
       const rms = Math.sqrt(sum / buf.length);
       const now = performance.now();
-      if (rms > 0.025) { spoke = true; lastLoud = now; }
-      if (spoke && now - lastLoud > 1200) return stopServerMic();
+      if (rms > 0.02) { spoke = true; lastLoud = now; }
+      // wait for a 1.6s gap after speech so the last word isnt clipped
+      if (spoke && now - lastLoud > 1600) return stopServerMic();
       if (!spoke && now - lastLoud > 6000) return stopServerMic();
       listenRAF = requestAnimationFrame(tick);
     };
     listenRAF = requestAnimationFrame(tick);
-  } catch (e) { /* no analyser - the 10s hard stop still applies */ }
+  } catch (e) { /* no analyser - the 10s hard stop still covers it */ }
 }
 function stopListenMeter() {
   if (listenRAF) cancelAnimationFrame(listenRAF);
@@ -425,7 +419,7 @@ function stopListenMeter() {
   if (listenCtx) { listenCtx.close().catch(() => {}); listenCtx = null; }
 }
 
-/* ---------- engine 2: browser Web Speech API ---------- */
+/* engine 2: browser Web Speech API */
 function startBrowserMic() {
   const SR = browserSpeech();
   const rec = new SR();
@@ -453,7 +447,7 @@ function startBrowserMic() {
   try { rec.start(); } catch (e) {}
 }
 
-/* ---------- the mic button: start OR stop ---------- */
+/* the mic button: start or stop */
 $("mic").onclick = () => {
   if (recording) {                       // tap again = stop early
     if (voiceEngine === "server") stopServerMic();
@@ -483,9 +477,7 @@ async function setupVoice() {
   }
 }
 
-/* ===========================================================
-   START
-=========================================================== */
+/* ===== START ===== */
 async function refresh() {
   const data = await getJSON("/api/devices");
   if (data && data.house) render(data.house);

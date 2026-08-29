@@ -1,7 +1,5 @@
-/* -----------------------------------------------------------
-   SmartHome - shared styles for the login page and dashboard.
-   Warm "paper + ink" look. One accent colour (terracotta).
------------------------------------------------------------ */
+/* shared styles for login + dashboard. warm paper+ink look,
+   one accent colour (terracotta). */
 
 :root {
   --paper:    #f7f2e7;
@@ -21,8 +19,7 @@
   --shadow:   rgba(43,39,31,.14);
 }
 
-/* dark mode - switched on automatically when the LIGHT is off
-   (the room is dark). Just redefines the colour tokens. */
+/* dark mode - on automatically when the light is off. just swaps the tokens. */
 body.dark {
   --paper:    #1e1c16;
   --paper-2:  #262218;
@@ -63,7 +60,7 @@ body.dark {
   font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
-/* ---------- buttons / inputs shared ---------- */
+/* shared buttons / inputs */
 button { font: inherit; cursor: pointer; }
 
 .btn-primary {
@@ -119,9 +116,7 @@ label {
 .link { color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .hidden { display: none; }
 
-/* ===========================================================
-   LOGIN PAGE
-=========================================================== */
+/* ===== LOGIN PAGE ===== */
 .auth {
   display: flex; align-items: center; justify-content: center;
   padding: 44px 18px;
@@ -136,11 +131,27 @@ label {
   box-shadow: 0 26px 60px -24px rgba(43,39,31,.5);
 }
 .brand-side {
+  position: relative;
+  overflow: hidden;
   background: linear-gradient(162deg, var(--forest-2), var(--forest));
   color: var(--cream);
   padding: 42px 40px;
   display: flex; flex-direction: column; justify-content: space-between; gap: 34px;
 }
+.brand-side > *:not(.pointers) { position: relative; z-index: 1; }
+
+/* arrows that swing to point at the cursor */
+.pointers { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+.pointer {
+  position: absolute;
+  width: 24px; height: 24px;
+  color: rgba(241, 234, 215, .16);
+  transition: transform .25s cubic-bezier(.2, .7, .3, 1), color .3s ease;
+  will-change: transform;
+}
+.pointer svg { display: block; width: 100%; height: 100%; }
+.brand-side:hover .pointer { color: rgba(200, 115, 79, .5); }
+@media (prefers-reduced-motion: reduce) { .pointer { transition: none; } }
 .wordmark { display: flex; align-items: center; gap: 12px; font-size: 21px; }
 .wordmark b { font-weight: 600; }
 .pitch h2 { font-size: 26px; font-weight: 600; line-height: 1.26; margin-bottom: 12px; }
@@ -164,6 +175,35 @@ label {
 .devbadge.show { display: inline-flex; }
 .devbadge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
 
+/* password strength meter (sign-up) */
+.pw-meter {
+  display: flex; align-items: center; gap: 10px;
+  margin: 8px 0 2px;
+}
+.pw-meter[hidden] { display: none; }
+.pw-track {
+  flex: 1; height: 6px; border-radius: 999px;
+  background: var(--paper-2); overflow: hidden;
+}
+.pw-track span {
+  display: block; height: 100%; width: 0%;
+  border-radius: 999px;
+  background: var(--bad);
+  transition: width .25s ease, background .25s ease;
+}
+.pw-word {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 11px; letter-spacing: .5px; text-transform: lowercase;
+  color: var(--ink-soft); min-width: 46px; text-align: right;
+}
+.pw-meter.s1 .pw-track span { width: 25%;  background: var(--bad); }
+.pw-meter.s2 .pw-track span { width: 50%;  background: var(--amber); }
+.pw-meter.s3 .pw-track span { width: 75%;  background: var(--good); }
+.pw-meter.s4 .pw-track span { width: 100%; background: var(--good); }
+.pw-meter.s2 .pw-word { color: var(--amber); }
+.pw-meter.s3 .pw-word,
+.pw-meter.s4 .pw-word { color: var(--good); }
+
 .row-end { display: flex; justify-content: flex-end; margin-top: 12px; }
 .tinybtn {
   font-family: ui-monospace, Menlo, Consolas, monospace;
@@ -178,15 +218,14 @@ label {
   .card { grid-template-columns: 1fr; max-width: 440px; }
   .brand-side { padding: 32px 30px; gap: 22px; }
   .pitch { display: none; }
+  .pointers { display: none; }
   .form-side { padding: 32px 28px 26px; }
 }
 
-/* ===========================================================
-   DASHBOARD
-=========================================================== */
+/* ===== DASHBOARD ===== */
 .wrap { width: 100%; max-width: 1080px; margin: 0 auto; padding: 26px 18px 40px; }
 
-/* smooth the colour change when dark mode flips on/off */
+/* ease the colour change when dark mode flips */
 .panel, .device, .field, .state, .device-icon, .log-icon, .avatar,
 .mic, .tab, .who button, .device button, .quick button, .cmd-row button {
   transition: background-color .35s ease, border-color .35s ease, color .35s ease;
@@ -264,7 +303,7 @@ header {
   100% { box-shadow: 0 0 0 0 rgba(229,72,77,0); }
 }
 
-/* ---- the "Listening..." pop-up (fixed, bottom-centre) ---- */
+/* the "Listening..." pop-up, pinned bottom-centre */
 .listen-overlay {
   position: fixed;
   left: 50%;
@@ -351,12 +390,10 @@ header {
 }
 .device button:hover { background: var(--accent); border-color: var(--accent); color: #fdf6ea; }
 
-/* -----------------------------------------------------------
-   each device gets its OWN look + motion when it's on
------------------------------------------------------------ */
+/* each device gets its own look + motion when on */
 .device-icon { transition: background .3s ease, box-shadow .3s ease, transform .3s ease; }
 
-/* LIGHT - warm glow while on, a quick flicker the moment it switches on */
+/* light - warm glow while on, a quick flicker when it switches on */
 #lightCard.on .device-icon {
   background: radial-gradient(circle at 50% 38%, #ffe7a6, #f4c368);
   box-shadow: 0 0 20px 3px rgba(244,195,104,.7);
@@ -370,11 +407,11 @@ header {
   75% { opacity: .85; }
 }
 
-/* FAN - blades keep spinning the whole time it's on */
+/* fan - blades spin while it's on */
 #fanCard.on .device-icon { animation: spin 1.05s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* DOOR - the bolt clunks across when it locks or unlocks */
+/* door - the bolt clunks across when it locks/unlocks */
 #doorCard.locked .device-icon   { background: rgba(164,67,47,.16); }
 #doorCard:not(.locked) .device-icon { background: rgba(79,107,67,.18); }
 .device.anim-clunk .device-icon { animation: clunk .42s ease both; }

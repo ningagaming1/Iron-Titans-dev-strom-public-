@@ -2,24 +2,14 @@ import json
 import os
 from datetime import datetime, timezone
 
-# =============================================================
-#  devices.py  ->  "the state of the house"
-# -------------------------------------------------------------
-#  One shared house, saved in data/devices.json. Everyone who
-#  logs in sees and controls the SAME devices (nice for a demo:
-#  toggle on one laptop, refresh another, it moved).
-#
-#  Devices:
-#    light        -> on / off
-#    fan          -> on / off
-#    door_locked  -> locked / unlocked   (True means locked)
-#
-#  We also keep a short "activity" list of the last few actions.
-# =============================================================
+# devices.py - the state of the house.
+# one shared house in data/devices.json, everyone sees the same thing.
+# light + fan are on/off, door_locked True means locked. plus a short
+# activity list of the last few actions.
 
 DEVICES_FILE = os.path.join("data", "devices.json")
 
-# what a brand-new house looks like
+# a fresh house
 FRESH_HOUSE = {
     "light": False,
     "fan": False,
@@ -28,14 +18,14 @@ FRESH_HOUSE = {
 }
 
 
-# ---- tiny storage helpers -----------------------------------
+# --- storage helpers ---
 def _load():
     try:
         with open(DEVICES_FILE, "r", encoding="utf-8") as f:
             house = json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         house = {}
-    # fill in anything missing so old / half-written files still work
+    # fill gaps so old / half-written files still load
     house.setdefault("light", False)
     house.setdefault("fan", False)
     house.setdefault("door_locked", True)
@@ -50,13 +40,13 @@ def _save(house):
 
 
 def _log(house, text, icon):
-    """Add one line to the top of the activity list, keep it short."""
-    stamp = datetime.now().strftime("%H:%M")   # local wall-clock, friendlier in the demo
+    """Push one line onto the top of the activity list."""
+    stamp = datetime.now().strftime("%H:%M")   # local time, nicer for the demo
     house["activity"].insert(0, {"text": text, "icon": icon, "at": stamp})
     del house["activity"][12:]
 
 
-# ---- the public functions the server calls -----------------
+# --- what the server calls ---
 def get_state():
     """Everything the dashboard needs to draw itself."""
     return _load()
@@ -64,9 +54,8 @@ def get_state():
 
 def set_device(device, value, who="someone"):
     """
-    device -> "light" | "fan" | "door"
-    value  -> True / False   (for "door", True = locked)
-    Returns (ok, house_state).
+    device -> "light" | "fan" | "door"  (for "door", value True = locked)
+    Returns (ok, house).
     """
     house = _load()
     value = bool(value)
@@ -89,7 +78,7 @@ def set_device(device, value, who="someone"):
 
 
 def all_devices(on, who="someone"):
-    """Turn the light + fan both on or both off (door is left alone)."""
+    """Flip light + fan together. Door is left alone."""
     house = _load()
     house["light"] = bool(on)
     house["fan"] = bool(on)
@@ -101,15 +90,11 @@ def all_devices(on, who="someone"):
 
 def apply(intent_dict, who="someone"):
     """
-    Take an intent from intent.parse() and actually change the house.
-    Returns (message, house_state).
-
-        intent.parse("turn on the light and fan")
-          -> {"ok": True, "action": "on", "targets": ["light", "fan"], ...}
-        devices.apply(that)  -> flips both, returns ("Turning the light and fan on", house)
+    Take an intent from intent.parse() and change the house.
+    Returns (message, house).
     """
     if not intent_dict.get("ok"):
-        # not understood - say why, don't change anything
+        # not understood - say why, touch nothing
         return intent_dict.get("say", "Didn't catch that."), get_state()
 
     action = intent_dict["action"]
@@ -138,7 +123,7 @@ def clear_activity(who="someone"):
 
 
 def reset():
-    """Put the house back to the starting state (used by seed.py)."""
+    """Back to the starting state (used by seed.py)."""
     _save({
         "light": False,
         "fan": False,

@@ -1,23 +1,12 @@
 import re
 
-# =============================================================
-#  intent.py  ->  "plain English  ->  a clear instruction"
-# -------------------------------------------------------------
-#  This is the "brain". It does not touch any device. It just
-#  reads a sentence and decides what the person wants:
-#
-#     parse("could you please switch off the fan")
-#       -> {"ok": True, "action": "off", "targets": ["fan"],
-#           "say": "Turning the fan off"}
-#
-#     parse("open the door")
-#       -> {"ok": True, "action": "unlock", "targets": ["door"],
-#           "say": "Unlocking the door"}
-#
-#  devices.apply() takes this dict and actually flips things.
-# =============================================================
+# intent.py - plain english -> a clear instruction.
+# reads a sentence, decides what the person wants, touches no device.
+#   parse("switch off the fan")
+#     -> {"ok": True, "action": "off", "targets": ["fan"], "say": ...}
+# devices.apply() takes that dict and flips things.
 
-# every word we accept for a device  ->  the real device name
+# words we accept for a device -> the real device name
 DEVICE_WORDS = {
     "light": "light", "lights": "light", "lamp": "light", "bulb": "light",
     "fan": "fan", "cooler": "fan",
@@ -43,7 +32,7 @@ def parse(text):
 
     word_set = set(words)
 
-    # ---- what devices are mentioned? ----
+    # which devices are mentioned?
     targets = []
     for w in words:
         name = DEVICE_WORDS.get(w)
@@ -56,7 +45,7 @@ def parse(text):
     if not targets:
         return _fail("Which device? Try 'turn off the fan'.")
 
-    # ---- the door has its own words (lock / unlock) ----
+    # door has its own words (lock / unlock)
     if targets == ["door"]:
         if word_set & OPEN_WORDS:
             return _ok("unlock", ["door"], "Unlocking the door")
@@ -64,7 +53,7 @@ def parse(text):
             return _ok("lock", ["door"], "Locking the door")
         return _fail("Lock or unlock the door?")
 
-    # ---- light / fan: figure out on vs off ----
+    # light / fan: on or off?
     wants_on  = bool(word_set & TURN_ON_WORDS)  or bool(word_set & OPEN_WORDS)
     wants_off = bool(word_set & TURN_OFF_WORDS) or bool(word_set & CLOSE_WORDS)
 
@@ -76,7 +65,7 @@ def parse(text):
     return _fail("Should I turn that on or off?")
 
 
-# ---- small helpers ----
+# --- helpers ---
 def _ok(action, targets, say):
     return {"ok": True, "action": action, "targets": targets, "say": say}
 

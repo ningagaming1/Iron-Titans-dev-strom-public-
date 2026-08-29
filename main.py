@@ -1,19 +1,16 @@
 """
-main.py  ->  one command to run the whole SmartHome project
+main.py - one command to run the whole thing.
 
     python main.py            start everything (seeds on first run)
-    python main.py --reset     wipe the databases, reseed, then start
-    python main.py --check     run the self-tests and exit (no server)
-    python main.py --port 9000 use a different port
-    python main.py --debug     print tracebacks instead of a short message
+    python main.py --reset    wipe the dbs, reseed, then start
+    python main.py --check    run self-tests and exit, no server
+    python main.py --port 9000
+    python main.py --debug    show full tracebacks
 
-What it does, in order:
-    1. sanity-check the Python version and the project layout
-    2. make sure data/ exists and, if there is no admin yet, seed one
-    3. run a quick self-test over every module (the "debug everything" part)
-    4. start the web server (same one as app.py)
+Order: check python + files, seed an admin if there's none,
+self-test every module, start the server.
 
-Starter admin  ->  username: admin   password: admin123
+Starter admin -> username: admin  password: admin123
 """
 
 import argparse
@@ -25,7 +22,7 @@ import tempfile
 import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-os.chdir(HERE)                       # run from anywhere, behave the same
+os.chdir(HERE)                       # run from anywhere
 sys.path.insert(0, HERE)
 
 MIN_PYTHON = (3, 7)
@@ -33,14 +30,13 @@ MIN_PYTHON = (3, 7)
 
 def _use_voice_venv():
     """
-    If the offline-voice virtual-env (./.venv) exists and has the voice
-    packages, hop into it automatically - so plain `python main.py` gets
-    working speech instead of silently falling back to the browser engine.
+    If ./.venv has the voice packages, re-exec into it so plain
+    `python main.py` gets real speech instead of the browser fallback.
     """
     if os.environ.get("SMARTHOME_NO_REEXEC"):
         return
     try:
-        import vosk, piper           # noqa: F401  - already good, stay put
+        import vosk, piper           # noqa: F401  - already fine, stay
         return
     except ImportError:
         pass
@@ -57,15 +53,13 @@ def _use_voice_venv():
                   flush=True)
             os.environ["SMARTHOME_NO_REEXEC"] = "1"
             os.execv(cand, [cand, *sys.argv])
-    # no usable venv - carry on; voice just uses the browser engine
+    # no venv - carry on, voice uses the browser engine
 
 
 _use_voice_venv()
 
 
-# -------------------------------------------------------------------
-#  small helpers
-# -------------------------------------------------------------------
+# --- small helpers ---
 def line(title=""):
     print(("--- " + title + " ").ljust(60, "-") if title else "-" * 60)
 
@@ -78,9 +72,8 @@ def die(message, code=1):
 @contextlib.contextmanager
 def sandboxed_data():
     """
-    Run the block against a throwaway COPY of data/ so the self-test never
-    touches the real databases. Repoints the file paths inside each module,
-    then puts them back.
+    Point the modules at a throwaway copy of data/ for the duration,
+    so self-tests never touch the real dbs. Puts the paths back after.
     """
     import login2
     import devices
@@ -107,9 +100,7 @@ def sandboxed_data():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-# -------------------------------------------------------------------
-#  1. environment checks
-# -------------------------------------------------------------------
+# --- 1. environment checks ---
 def check_environment():
     line("environment")
     if sys.version_info < MIN_PYTHON:
@@ -130,9 +121,7 @@ def check_environment():
     print("  web/ assets  ok")
 
 
-# -------------------------------------------------------------------
-#  2. database: seed only when there is nothing there yet
-# -------------------------------------------------------------------
+# --- 2. database: seed only if empty ---
 def ensure_database(force_reset=False):
     line("database")
     import login2
@@ -159,9 +148,7 @@ def ensure_database(force_reset=False):
         print("  note: no 'admin' account (that's fine if you renamed it)")
 
 
-# -------------------------------------------------------------------
-#  3. self-test every module ("debug everything")
-# -------------------------------------------------------------------
+# --- 3. self-test every module ---
 def self_test():
     line("self-test")
     failures = []
@@ -173,13 +160,13 @@ def self_test():
         print(f"  [FAIL] {name}: {err}")
         failures.append(name)
 
-    # -- imports --
+    # imports
     try:
         import app, login2, signup, devices, intent, seed  # noqa: F401
         ok("import all modules")
     except Exception as e:
         bad("import all modules", e)
-        return failures            # nothing else will work
+        return failures            # nothing else will work anyway
 
     with sandboxed_data():
         _run_checks(ok, bad)
@@ -189,7 +176,7 @@ def self_test():
 def _run_checks(ok, bad):
     import login2, signup, devices, intent
 
-    # -- password scramble round-trips --
+    # password scramble round-trips
     try:
         rounds, fib_check, pw_hash = signup.password_funct("hunter2")
         assert signup.password_matches("hunter2", rounds, fib_check, pw_hash)
@@ -198,7 +185,7 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("signup password round-trip", e)
 
-    # -- intent parsing --
+    # intent parsing
     try:
         cases = {
             "turn on the light": ("on", ["light"]),
@@ -218,7 +205,7 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("intent.parse", e)
 
-    # -- devices: apply an intent and flip the door (runs on a data sandbox) --
+    # devices: apply an intent, flip the door (on the sandbox)
     try:
         _, house = devices.apply(intent.parse("turn on the light"), "self-test")
         assert house["light"] is True
@@ -232,8 +219,8 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("devices round-trip", e)
 
-    # -- login: request -> (approve if needed) -> login, on the sandbox --
-    # works whether DEV_MODE is on (auto-approved) or off (needs approve())
+    # login: request -> approve if needed -> login
+    # works with dev mode on or off
     try:
         made, _ = login2.request_account("selftester", "pw123456")
         assert made
@@ -248,9 +235,7 @@ def _run_checks(ok, bad):
         bad("login2.login", e)
 
 
-# -------------------------------------------------------------------
-#  put it together
-# -------------------------------------------------------------------
+# --- put it together ---
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="main.py",

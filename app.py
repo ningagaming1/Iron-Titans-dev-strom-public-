@@ -7,40 +7,17 @@ import devices
 import intent
 
 try:
-    import voice                     # offline STT + TTS (optional deps)
-except Exception:                    # missing package shouldn't stop the app
+    import voice                     # offline voice, optional
+except Exception:                    # missing dep shouldnt kill the app
     voice = None
 
-# folder this file lives in - so it works no matter which
-# directory you run "python app.py" from
+# run from anywhere, paths still work
 HERE = os.path.dirname(os.path.abspath(__file__))
-WEB = os.path.join(HERE, "web")           # all the html / css / js lives here
+WEB = os.path.join(HERE, "web")
 os.chdir(HERE)
 
-# =============================================================
-#  app.py  ->  "the bridge between the web pages and Python"
-# -------------------------------------------------------------
-#  Run:   python app.py     then open  http://localhost:8000
-#
-#  Pages come from the  web/  folder.
-#
-#  API:
-#    POST /api/signup        {username, password}
-#    POST /api/login         {username, password}
-#    POST /api/session       {username}            -> account still exists?
-#    POST /api/pending       {admin}
-#    POST /api/approve       {admin, username}
-#    POST /api/reject        {admin, username}
-#    POST /api/devmode       {admin, on}           -> toggle developer mode
-#    GET  /api/config                              -> {dev_mode}
-#    GET  /api/devices                             -> the whole house
-#    POST /api/devices/set   {username, device, value}
-#    POST /api/command       {username, text}      -> text -> intent -> house
-#    POST /api/activity/clear {username}
-#    GET  /api/voice/status                        -> {stt, tts, ready, ...}
-#    POST /api/voice         (raw audio body)      -> mic -> text -> house -> spoken reply
-#    POST /api/voice/tts     {text}                -> audio/wav of that text
-# =============================================================
+# app.py - the bridge between the web pages and python.
+# run:  python app.py   then open  http://localhost:8000
 
 PORT = 8000
 
@@ -53,7 +30,7 @@ CONTENT_TYPES = {
 
 class Handler(BaseHTTPRequestHandler):
 
-    # ---- low-level helpers ------------------------------------
+    # --- small helpers ---
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
@@ -74,7 +51,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def _send_static(self, name):
-        """Serve a file from web/. Unknown page -> the login page."""
+        """Serve a file from web/. Unknown page falls back to login."""
         name = (name or "").lstrip("/") or "index.html"
         full = os.path.normpath(os.path.join(WEB, name))
         if not full.startswith(WEB) or not os.path.isfile(full):
@@ -114,7 +91,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(wav_bytes)
 
-    # ---- GET: pages, assets, read-only data ------------------
+    # --- GET: pages, assets, read-only stuff ---
     def do_GET(self):
         route = self.path.split("?")[0].rstrip("/") or "/"
 
@@ -136,12 +113,12 @@ class Handler(BaseHTTPRequestHandler):
         elif route.startswith("/api/"):
             self._send_json({"ok": False, "message": "unknown endpoint"}, 404)
         else:
-            # /style.css, /auth.js, /dashboard.js, /index.html, ...
+            # css / js / html
             self._send_static(route)
 
-    # ---- POST: the API --------------------------------------
+    # --- POST: the API ---
     def do_POST(self):
-        # /api/voice carries a raw audio body, not JSON - handle it first
+        # /api/voice sends raw audio not json, do it first
         if self.path.split("?")[0] == "/api/voice":
             self._handle_voice()
             return
@@ -197,7 +174,7 @@ class Handler(BaseHTTPRequestHandler):
                             "admin approval."),
             })
 
-        # ---- the house ----
+        # --- the house ---
         elif self.path == "/api/devices/set":
             device = str(data.get("device", ""))
             value = data.get("value")
@@ -208,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"ok": ok, "house": house})
 
         elif self.path == "/api/command":
-            # typed text  ->  intent  ->  house
+            # text -> intent -> house
             parsed = intent.parse(str(data.get("text", "")))
             message, house = devices.apply(parsed, who)
             self._send_json({"ok": parsed["ok"], "message": message, "house": house})
@@ -232,7 +209,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send_json({"ok": False, "message": "unknown endpoint"}, 404)
 
-    # ---- voice: mic audio -> text -> house -> spoken reply ----
+    # --- voice: mic -> text -> house -> spoken reply ---
     def _handle_voice(self):
         raw = self._read_raw()
         from urllib.parse import parse_qs, urlparse
@@ -262,7 +239,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(port=PORT):
-    """Start the web server and block until Ctrl+C. Used by app.py and main.py."""
+    """Start the server, block till Ctrl+C. Used by app.py and main.py."""
     try:
         server = ThreadingHTTPServer(("", port), Handler)
     except OSError as e:

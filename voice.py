@@ -1,30 +1,17 @@
 """
-voice.py  ->  offline speech IN and speech OUT for SmartHome
+voice.py - offline speech in and out.
 
-    transcribe(audio_bytes)      raw mic audio  -> text        (Vosk, offline)
-    answer(text, who)            text           -> {reply, house, ok, kind}
-    synthesize(text)             text           -> WAV bytes    (Piper, offline)
-    handle(audio_bytes, who)     the whole loop in one call
+    transcribe(audio_bytes)    mic audio -> text     (Vosk)
+    answer(text, who)          text -> {reply, house, ok, kind}
+    synthesize(text)           text -> WAV bytes     (Piper)
+    handle(audio_bytes, who)   the whole loop in one call
 
-Design goals the team asked for:
-    * free            - Vosk + Piper are open source, no API keys, no quota
-    * offline         - after voice_setup.py has fetched the models, nothing
-                        on this path touches the internet
-    * "just works"    - every function degrades gracefully. If a model is
-                        missing, status() says so and the browser falls back
-                        to its own Web Speech engine instead of erroring.
-    * human-ish voice - Piper is a neural TTS (already natural), and we nudge
-                        the pitch up a touch with ffmpeg so it sounds warmer
-                        and less flat.  Tune with SMARTHOME_TTS_PITCH.
+Vosk + Piper, both free and offline once voice_setup.py has grabbed
+the models (into data/models/, git-ignored). If a model is missing,
+status() says so and the browser uses its own Web Speech engine.
 
-Models live in  data/models/  (git-ignored) and are downloaded once:
-
-    python voice_setup.py
-
-The "brain" in answer():
-    1. run the text through intent.py  ->  if it's a device command, do it
-    2. otherwise, if a chatbot is wired up (chatbot_reply below), ask it
-    3. otherwise say a short "I can only do devices" line
+answer() runs the text through intent.py first; if it's not a device
+command it tries chatbot_reply(), else a canned "I only do devices" line.
 """
 
 import importlib.util
@@ -41,28 +28,24 @@ import intent
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(HERE, "data", "models")
-VOSK_DIR = os.path.join(MODELS_DIR, "vosk")            # extracted model folder
+VOSK_DIR = os.path.join(MODELS_DIR, "vosk")
 PIPER_ONNX = os.path.join(MODELS_DIR, "piper", "voice.onnx")
 
-# how much to lift the TTS pitch (1.0 = off, 1.06 = a little warmer / more human).
-# a small shift only - too much and it turns into a chipmunk.
+# lift the TTS pitch a touch so it sounds warmer. too much = chipmunk.
 TTS_PITCH = float(os.environ.get("SMARTHOME_TTS_PITCH", "1.06"))
-# Piper speaking pace: >1 slower, <1 faster.
+# piper pace: >1 slower, <1 faster
 TTS_PACE = float(os.environ.get("SMARTHOME_TTS_PACE", "1.0"))
 
 FFMPEG = shutil.which("ffmpeg")
 
-# lazy singletons - loading a model takes ~1s, so we do it once on first use.
-# the server is threaded, so guard model load + Piper inference with a lock.
+# load each model once, on first use. server is threaded so lock it.
 _vosk_model = None
 _piper_voice = None
 _load_lock = threading.Lock()
 _piper_lock = threading.Lock()
 
 
-# =============================================================
-#  what's available right now?
-# =============================================================
+# --- what's available right now? ---
 def _installed(pkg):
     try:
         return importlib.util.find_spec(pkg) is not None
@@ -81,8 +64,8 @@ def _piper_ready():
 
 
 def status():
-    """Tell the front-end which half of the pipeline it can use."""
-    # both paths pipe audio through ffmpeg (decode in, pitch out)
+    """Tell the front-end which half of the pipeline works."""
+    # both paths need ffmpeg
     stt = _vosk_ready() and bool(FFMPEG)
     tts = _piper_ready() and bool(FFMPEG)
     return {
@@ -112,25 +95,22 @@ def _setup_hint(stt, tts):
             + " and ".join(missing) + " model(s). Until then the browser engine is used.")
 
 
-# =============================================================
-#  1. speech  ->  text   (Vosk)
-# =============================================================
+# --- 1. speech -> text (Vosk) ---
 def _get_vosk():
     global _vosk_model
     if _vosk_model is None:
         with _load_lock:
             if _vosk_model is None:
                 from vosk import Model, SetLogLevel
-                SetLogLevel(-1)              # hush the kaldi banner
+                SetLogLevel(-1)              # hush kaldi
                 _vosk_model = Model(VOSK_DIR)
     return _vosk_model
 
 
 def _to_pcm16_mono_16k(audio_bytes):
     """
-    Take whatever the browser sent (webm/opus, ogg, wav, mp3, raw...) and
-    return 16 kHz mono signed-16-bit PCM, which is what Vosk wants.
-    ffmpeg reads almost anything, so we just let it figure the input out.
+    Whatever the browser sent -> 16kHz mono s16 PCM, which is what
+    Vosk wants. ffmpeg reads almost anything so let it sort the input.
     """
     if not FFMPEG:
         raise RuntimeError("ffmpeg is not installed")
@@ -144,39 +124,123 @@ def _to_pcm16_mono_16k(audio_bytes):
     return out.stdout
 
 
+# tight vocab for the light/fan/door commands. Vosk is way more accurate
+# when it can only pick from the words it needs. Built from intent.py so
+# the two dont drift. A free-form pass still runs for everything else.
+_GRAMMAR_JSON = None
+GRAMMAR_ON = os.environ.get("SMARTHOME_VOICE_GRAMMAR", "1").lower() not in ("0", "false", "no")
+
+
+def _command_grammar():
+    global _GRAMMAR_JSON
+    if _GRAMMAR_JSON is None:
+        words = set()
+        for d in (intent.DEVICE_WORDS,):
+            words |= set(d)
+        for s in (intent.TURN_ON_WORDS, intent.TURN_OFF_WORDS,
+                  intent.OPEN_WORDS, intent.CLOSE_WORDS, intent.EVERYTHING_WORDS):
+            words |= set(s)
+        words |= {"turn", "switch", "the", "a", "please", "my", "to", "power", "you", "can"}
+        _GRAMMAR_JSON = json.dumps([" ".join(sorted(words)), "[unk]"])
+    return _GRAMMAR_JSON
+
+
+class _hush_stderr:
+    """Vosk writes 'word missing in vocabulary' straight to fd 2, past
+    SetLogLevel. Mute fd 2 while we build the recognizer."""
+    def __enter__(self):
+        self._old = os.dup(2)
+        self._null = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(self._null, 2)
+
+    def __exit__(self, *a):
+        os.dup2(self._old, 2)
+        os.close(self._null)
+        os.close(self._old)
+
+
+def _recognize(pcm, grammar=None, alts=1):
+    from vosk import KaldiRecognizer
+    with _hush_stderr():
+        rec = (KaldiRecognizer(_get_vosk(), 16000, grammar) if grammar
+               else KaldiRecognizer(_get_vosk(), 16000))
+    if alts > 1:
+        rec.SetMaxAlternatives(alts)
+    rec.AcceptWaveform(pcm)
+    res = json.loads(rec.FinalResult())
+    if "alternatives" in res:
+        return [(a.get("text") or "").strip() for a in res["alternatives"]]
+    return [(res.get("text") or "").strip()]
+
+
+# words we can act on - used to snap near-misses ("fam" -> "fan")
+def _vocab():
+    v = set(intent.DEVICE_WORDS)
+    for s in (intent.TURN_ON_WORDS, intent.TURN_OFF_WORDS, intent.OPEN_WORDS,
+              intent.CLOSE_WORDS, intent.EVERYTHING_WORDS):
+        v |= set(s)
+    return v
+
+
+_VOCAB = None
+
+
+def _repair(text):
+    """Snap near-miss words to the closest command word.
+    'turn on the lite' -> 'turn on the light', 'fam' -> 'fan'."""
+    global _VOCAB
+    if _VOCAB is None:
+        _VOCAB = _vocab()
+    import difflib
+    out = []
+    for w in text.split():
+        if w in _VOCAB or len(w) < 3:
+            out.append(w)
+            continue
+        near = difflib.get_close_matches(w, _VOCAB, n=1, cutoff=0.8)
+        out.append(near[0] if near else w)
+    return " ".join(out)
+
+
 def transcribe(audio_bytes):
     """
-    Raw microphone audio  ->  plain text (lower-case, no punctuation).
-    Returns "" if nothing intelligible was heard.
+    Mic audio -> plain lowercase text.
+
+    Two passes: a vocab-locked one tuned for device commands, and a free
+    one. If the locked pass gives a real command we trust it, else we
+    fall back to the free text so the chatbot hook still gets a shot.
+    Returns "" if nothing was heard.
     """
     if not _vosk_ready():
         raise RuntimeError("speech-to-text model missing - run voice_setup.py")
 
     pcm = _to_pcm16_mono_16k(audio_bytes)
 
-    from vosk import KaldiRecognizer
-    rec = KaldiRecognizer(_get_vosk(), 16000)
-    rec.AcceptWaveform(pcm)
-    result = json.loads(rec.FinalResult())
-    return (result.get("text") or "").strip()
+    if GRAMMAR_ON:
+        try:
+            # 3 best guesses, first real command wins (try a fuzzy repair too)
+            for guess in _recognize(pcm, _command_grammar(), alts=3):
+                guess = " ".join(w for w in guess.split()
+                                 if w not in ("unk", "[unk]")).strip()
+                for cand in (guess, _repair(guess)):
+                    if cand and intent.parse(cand).get("ok"):
+                        return cand
+        except Exception:
+            pass                     # e.g. a model with no grammar support
+
+    free = _recognize(pcm)[0]
+    repaired = _repair(free)
+    return repaired if intent.parse(repaired).get("ok") else free
 
 
-# =============================================================
-#  2. the brain:  text  ->  what to say / do
-# =============================================================
+# --- 2. the brain: text -> what to say / do ---
 def chatbot_reply(text, who="someone"):
     """
-    Hook for a general chatbot, for anything that ISN'T a device command
-    ("what's the weather", "tell me a joke", ...).
+    Hook for a general chatbot - anything that isn't a device command.
 
-    If you have a chatbot HTTP endpoint, point SMARTHOME_CHATBOT_URL at it.
-    We POST {"text": ..., "user": ...} and read {"reply": ...} (also accepts
-    "answer" / "text" / "response").  Anything goes wrong -> None, and the
-    caller falls back to a canned line.
-
-    This is also the spot to drop in your other project's router.route():
-        from router import route            # (needs that project's packages)
-        return route(text, {"username": who})
+    Point SMARTHOME_CHATBOT_URL at an endpoint. We POST {text, user} and
+    read {reply} (also accepts answer/text/response). Any error -> None
+    and the caller uses a canned line.
     """
     url = os.environ.get("SMARTHOME_CHATBOT_URL")
     if not url:
@@ -198,11 +262,11 @@ def chatbot_reply(text, who="someone"):
 
 def answer(text, who="someone"):
     """
-    text  ->  {reply, house, ok, kind}
+    text -> {reply, house, ok, kind}
 
-        kind = "device"   we understood a light/fan/door command and did it
-             = "chat"      handed off to the chatbot
-             = "unknown"   couldn't help
+        kind = "device"   understood a command and did it
+             = "chat"      handed to the chatbot
+             = "unknown"   couldnt help
     """
     text = (text or "").strip()
     if not text:
@@ -219,15 +283,13 @@ def answer(text, who="someone"):
     if bot:
         return {"reply": bot, "house": devices.get_state(), "ok": True, "kind": "chat"}
 
-    # nothing could help - reuse intent's friendly nudge
+    # nothing worked - reuse intent's nudge
     return {"reply": parsed.get("say", "I can turn the light or fan on and off, "
                                        "or lock the door."),
             "house": devices.get_state(), "ok": False, "kind": "unknown"}
 
 
-# =============================================================
-#  3. text  ->  speech   (Piper, then a gentle pitch lift)
-# =============================================================
+# --- 3. text -> speech (Piper + a small pitch lift) ---
 def _get_piper():
     global _piper_voice
     if _piper_voice is None:
@@ -239,7 +301,7 @@ def _get_piper():
 
 
 def _pitch_shift(wav_bytes, factor):
-    """Raise pitch by `factor` without speeding the speech up (ffmpeg)."""
+    """Raise pitch by `factor` without speeding it up (ffmpeg)."""
     if not FFMPEG or abs(factor - 1.0) < 0.01:
         return wav_bytes
     with wave.open(io.BytesIO(wav_bytes)) as w:
@@ -253,7 +315,7 @@ def _pitch_shift(wav_bytes, factor):
 
 
 def synthesize(text):
-    """text -> WAV bytes (16-bit PCM, plays natively in any browser)."""
+    """text -> WAV bytes, plays in any browser."""
     if not _piper_ready():
         raise RuntimeError("text-to-speech model missing - run voice_setup.py")
 
@@ -267,15 +329,13 @@ def synthesize(text):
     return _pitch_shift(buf.getvalue(), TTS_PITCH)
 
 
-# =============================================================
-#  4. the whole round trip, for POST /api/voice
-# =============================================================
+# --- 4. the whole round trip, for POST /api/voice ---
 def handle(audio_bytes, who="someone"):
     """
-    mic audio  ->  {text, reply, house, ok, kind, audio_wav}
+    mic audio -> {text, reply, house, ok, kind, audio_wav}
 
-    audio_wav is raw WAV bytes for the spoken reply, or None if TTS isn't
-    set up (the browser then speaks it with its own engine).
+    audio_wav is the spoken reply as WAV bytes, or None if TTS isnt set
+    up (browser speaks it itself then).
     """
     text = transcribe(audio_bytes)
     result = answer(text, who)
@@ -291,7 +351,7 @@ def handle(audio_bytes, who="someone"):
     return result
 
 
-# quick manual check:  python voice.py "lock the door"
+# quick check:  python voice.py "lock the door"
 if __name__ == "__main__":
     import sys
     print(json.dumps(status(), indent=2))

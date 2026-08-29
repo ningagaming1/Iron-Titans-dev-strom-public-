@@ -11,6 +11,7 @@
   <main class="card">
 
     <aside class="brand-side">
+      <div class="pointers" id="pointers" aria-hidden="true"></div>
       <div class="wordmark">🏠 <span>Smart<b>Home</b></span></div>
       <div class="pitch">
         <h2>The house is on the guest list.<br>You're not - yet.</h2>
@@ -54,6 +55,10 @@
           <input class="field" id="suUser" type="text" required>
           <label for="suPass">pick a password</label>
           <input class="field" id="suPass" type="password" required>
+          <div class="pw-meter" id="pwMeter" hidden>
+            <div class="pw-track"><span id="pwFill"></span></div>
+            <span class="pw-word" id="pwWord">weak</span>
+          </div>
           <label for="suPass2">type it again</label>
           <input class="field" id="suPass2" type="password" required>
           <div class="row-end">

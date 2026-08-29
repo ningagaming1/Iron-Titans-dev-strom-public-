@@ -64,6 +64,17 @@ mic  ->  POST /api/voice  ->  Vosk (speech->text)
                           ->  Piper (text->speech)  ->  browser plays the reply
 ```
 
+### Accuracy
+
+Vosk is run twice: a **vocabulary-locked pass** built from `intent.py` (only the
+words a light/fan/door command can contain &mdash; very accurate) and a free pass
+for anything else. The mic in the browser auto-stops ~1.6&nbsp;s after you stop
+talking so the last word isn't clipped.
+
+- `SMARTHOME_VOICE_GRAMMAR=0` &mdash; turn the locked pass off
+- `python voice_setup.py --big` &mdash; larger 128&nbsp;MB model, better at free
+  dictation (for the chatbot), but the grammar boost is skipped
+
 `voice.py` &rarr; `chatbot_reply()` is the hook for a general chatbot: set
 `SMARTHOME_CHATBOT_URL` to an endpoint that takes `{text, user}` and returns
 `{reply}`, or drop your own router in there. Until then, non-device phrases get
