@@ -3,21 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartHome - dashboard</title>
+  <title>Sync-Ghar - dashboard</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body class="dark">
 <div class="wrap">
 
   <header>
-    <div class="brand">🏠 Smart<b>Home</b></div>
+    <div class="brand">🏠 Sync-<b>Ghar</b></div>
+    <div class="header-sp"></div>
     <div class="who">
       <div>
         <div class="name" id="who">user</div>
         <div class="role" id="role">member</div>
       </div>
       <div class="avatar" id="avatar">U</div>
-      <button id="logout">Log out</button>
+      <button id="logout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+        </svg>
+        Log out
+      </button>
     </div>
   </header>
 
@@ -31,81 +37,150 @@
     <button class="tab" data-tab="invites">Invites<span class="badge" id="inviteBadge">0</span></button>
   </nav>
 
-  <!-- CONTROL -->
-  <div class="page active" id="page-control">
+  <div class="layout">
+    <main class="col-main">
 
-    <section class="panel">
-      <h2>Command <span class="hint" id="micStatus">tap the mic or type</span></h2>
-      <div class="voice">
-        <button class="mic" id="mic" title="Speak a command">🎙</button>
-        <div class="voice-info">
-          <small>you said</small>
-          <div class="heard" id="heard">Try "turn on the light"</div>
+      <!-- CONTROL -->
+      <div class="page active" id="page-control">
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Command</h2>
+            <span class="hint tap" id="micStatus">Tap to speak</span>
+          </div>
+          <div class="voice">
+            <button class="mic" id="mic" title="Speak a command">🎙</button>
+            <div class="voice-info">
+              <small>you said</small>
+              <div class="heard" id="heard">Try "turn on the light"</div>
+            </div>
+          </div>
+          <form class="cmd-row" id="cmdForm">
+            <input class="field" id="cmdInput" type="text" autocomplete="off"
+                   placeholder='e.g. "turn on the fan" or "lock the door"'>
+            <button type="submit">
+              Send
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            </button>
+          </form>
+          <div class="status" id="status"></div>
+          <p class="voice-note" id="voiceNote"></p>
+          <button type="button" class="textbtn" id="voiceCheck">mic not working? tap here</button>
+        </section>
+
+        <div class="strip">
+          <h2>Your devices</h2>
+          <div class="strip-right">
+            <span id="deviceCount">0 of 0 on</span>
+            <button class="addbtn" id="addDeviceBtn">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Add device
+            </button>
+          </div>
         </div>
+
+        <section class="devices" id="devices"></section>
+
+        <section class="panel">
+          <h2>Quick controls</h2>
+          <div class="quick">
+            <button id="allOn" class="q-on">⚡ Everything on</button>
+            <button id="allOff">🌙 Everything off</button>
+            <button id="lockDoor" class="q-lock">🔒 Lock the door</button>
+          </div>
+        </section>
+
       </div>
-      <form class="cmd-row" id="cmdForm">
-        <input class="field" id="cmdInput" type="text" autocomplete="off"
-               placeholder='e.g. "turn on the fan" or "lock the door"'>
-        <button type="submit">Send</button>
-      </form>
-      <div class="status" id="status"></div>
-      <div class="voice-note" id="voiceNote"></div>
-    </section>
 
-    <div class="strip"><h2>Your devices</h2><span id="deviceCount">0 on</span></div>
-
-    <section class="devices">
-      <article class="device" id="lightCard">
-        <div class="device-top"><div class="device-icon" id="lightIcon">💡</div><div class="state" id="lightState">OFF</div></div>
-        <h3>Living Room Light</h3><p>Living Room</p>
-        <button id="lightBtn">Turn On</button>
-      </article>
-      <article class="device" id="fanCard">
-        <div class="device-top"><div class="device-icon" id="fanIcon">🌀</div><div class="state" id="fanState">OFF</div></div>
-        <h3>Ceiling Fan</h3><p>Living Room</p>
-        <button id="fanBtn">Turn On</button>
-      </article>
-      <article class="device locked" id="doorCard">
-        <div class="device-top"><div class="device-icon" id="doorIcon">🔒</div><div class="state on" id="doorState">LOCKED</div></div>
-        <h3>Main Door</h3><p>Entrance</p>
-        <button id="doorBtn">Unlock Door</button>
-      </article>
-    </section>
-
-    <section class="panel">
-      <h2>Quick controls</h2>
-      <div class="quick">
-        <button id="allOn">Everything on</button>
-        <button id="allOff">Everything off</button>
-        <button id="lockDoor">Lock the door</button>
+      <!-- INVITES -->
+      <div class="page" id="page-invites">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>People asking to join</h2>
+            <button class="textbtn" id="refreshInvites">refresh</button>
+          </div>
+          <p class="hint" id="inviteNote">Accept someone and they can log in. Decline drops their request.</p>
+          <label class="devmode">
+            <input type="checkbox" id="devToggle">
+            <span>Developer mode &mdash; new sign-ups are approved automatically (skips this list)</span>
+          </label>
+          <div id="pending" style="margin-top:14px;"><div class="empty">loading...</div></div>
+        </section>
       </div>
-    </section>
 
-    <section class="panel">
-      <h2>Recent activity <button class="textbtn" id="clearLog">clear</button></h2>
-      <div id="log"><div class="empty">no activity yet</div></div>
-    </section>
+    </main>
 
+    <aside class="col-side">
+      <section class="panel status-card">
+        <div class="status-row">
+          <span class="dot"></span>
+          <div>
+            <b>System status</b>
+            <span id="sysStatus">All systems operational</span>
+          </div>
+          <div class="shield">🛡️</div>
+        </div>
+      </section>
+
+      <section class="panel activity-card">
+        <div class="panel-head">
+          <h2>Recent activity</h2>
+          <button class="textbtn" id="clearLog">clear</button>
+        </div>
+        <div id="log"><div class="empty">no activity yet</div></div>
+        <button class="view-all" id="viewAll">View full activity &nbsp;›</button>
+      </section>
+    </aside>
   </div>
 
-  <!-- INVITES -->
-  <div class="page" id="page-invites">
-    <section class="panel">
-      <h2>People asking to join <button class="textbtn" id="refreshInvites">refresh</button></h2>
-      <p class="hint" id="inviteNote">Accept someone and they can log in. Decline drops their request.</p>
-      <label class="devmode">
-        <input type="checkbox" id="devToggle">
-        <span>Developer mode &mdash; new sign-ups are approved automatically (skips this list)</span>
-      </label>
-      <div id="pending" style="margin-top:12px;"><div class="empty">loading...</div></div>
-    </section>
-  </div>
-
-  <footer>SmartHome - hackathon prototype</footer>
+  <footer>Sync-Ghar - hackathon prototype</footer>
 
 </div>
 
-<!-- pops up while the mic is on -->
+<!-- add-device modal -->
+<div class="modal-back" id="addModal" hidden>
+  <div class="modal">
+    <h2>Add a device</h2>
+    <p class="msub">It shows up for everyone in the house right away.</p>
+    <form id="addForm" autocomplete="off">
+      <label for="dName">Name</label>
+      <input class="field" id="dName" type="text" required placeholder="e.g. Bedroom Lamp">
+
+      <label for="dRoom">Room</label>
+      <input class="field" id="dRoom" type="text" placeholder="e.g. Bedroom">
+
+      <label>Type</label>
+      <div class="seg" id="dType">
+        <button type="button" data-type="toggle" class="on">On / off</button>
+        <button type="button" data-type="lock">Lock</button>
+        <button type="button" data-type="dimmer">Dimmer</button>
+      </div>
+
+      <label>Icon</label>
+      <div class="icons" id="dIcons">
+        <button type="button" class="on">💡</button>
+        <button type="button">🌀</button>
+        <button type="button">🔒</button>
+        <button type="button">🔌</button>
+        <button type="button">📺</button>
+        <button type="button">🎵</button>
+        <button type="button">🔥</button>
+        <button type="button">❄️</button>
+        <button type="button">☕</button>
+        <button type="button">🪟</button>
+      </div>
+
+      <div class="note" id="addNote"></div>
+
+      <div class="modal-row">
+        <button type="button" class="ghost" id="addCancel">Cancel</button>
+        <button type="submit" class="btn-primary" id="addSubmit">Add device</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- shows while the mic is on -->
 <div class="listen-overlay listening" id="listenOverlay" hidden>
   <span class="listen-dot"></span>
   <span class="listen-text">Listening...</span>

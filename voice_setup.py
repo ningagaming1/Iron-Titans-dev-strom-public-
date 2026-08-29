@@ -1,19 +1,16 @@
 """
-voice_setup.py  ->  download the offline speech models, once.
+voice_setup.py - download the offline speech models, once.
 
     python voice_setup.py            # get both models if missing
-    python voice_setup.py --force    # re-download even if present
+    python voice_setup.py --force    # re-download anyway
+    python voice_setup.py --big      # bigger, more accurate STT model
 
-Puts everything under  data/models/  (git-ignored):
+Everything lands in data/models/ (git-ignored): vosk ~40MB for
+speech-to-text, piper ~63MB for text-to-speech. Both free, and after
+this the voice path needs no internet.
 
-    data/models/vosk/            ~40 MB  - speech to text
-    data/models/piper/voice.*    ~63 MB  - text to speech (natural voice)
-
-Both are open source and free. After this runs, the whole voice path
-works with no internet.
-
-Needs the Python packages first:   pip install -r requirements.txt
-And ffmpeg on PATH (Arch:  sudo pacman -S ffmpeg).
+Needs the packages first (pip install -r requirements.txt) and ffmpeg
+on PATH (Arch: sudo pacman -S ffmpeg).
 """
 
 import argparse
@@ -29,10 +26,16 @@ MODELS = os.path.join(HERE, "data", "models")
 VOSK_DIR = os.path.join(MODELS, "vosk")
 PIPER_DIR = os.path.join(MODELS, "piper")
 
-VOSK_ZIP_URL = "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+# small (40MB) is the default - with voice.py's grammar it nails the
+# light/fan/door commands. --big (128MB) does free speech better but
+# cant use the grammar.
+VOSK_MODELS = {
+    "small": "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
+    "big":   "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
+}
 
-# a warm, natural US-English voice. swap the three URLs for another Piper
-# voice if you prefer - https://rhasspy.github.io/piper-samples/
+# a warm US-English voice. swap the URLs for another piper voice if you
+# want - https://rhasspy.github.io/piper-samples/
 PIPER_BASE = ("https://huggingface.co/rhasspy/piper-voices/resolve/main/"
               "en/en_US/lessac/medium/en_US-lessac-medium.onnx")
 PIPER_FILES = {
@@ -60,16 +63,16 @@ def _download(url, label):
     return b"".join(chunks)
 
 
-def setup_vosk(force):
+def setup_vosk(force, size="small"):
     ok = os.path.isfile(os.path.join(VOSK_DIR, "am", "final.mdl"))
     if ok and not force:
-        print("  speech-to-text  : already present, skipping")
+        print("  speech-to-text  : already present, skipping (--force to replace)")
         return
     if os.path.isdir(VOSK_DIR):
         shutil.rmtree(VOSK_DIR)
-    raw = _download(VOSK_ZIP_URL, "speech-to-text model (~40 MB)")
+    raw = _download(VOSK_MODELS[size], f"speech-to-text model ({size})")
     with zipfile.ZipFile(io.BytesIO(raw)) as z:
-        top = z.namelist()[0].split("/")[0]        # vosk-model-small-en-us-0.15/
+        top = z.namelist()[0].split("/")[0]        # the vosk-model-... folder
         z.extractall(MODELS)
     os.rename(os.path.join(MODELS, top), VOSK_DIR)
     print("  speech-to-text  : done ->", os.path.relpath(VOSK_DIR, HERE))
@@ -90,17 +93,20 @@ def setup_piper(force):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Download SmartHome's offline voice models.")
+    ap = argparse.ArgumentParser(description="Download Sync-Ghar's offline voice models.")
     ap.add_argument("--force", action="store_true", help="re-download even if present")
+    ap.add_argument("--big", action="store_true",
+                    help="bigger STT model (128 MB) - better free speech, "
+                         "but the command grammar is skipped")
     args = ap.parse_args()
 
     os.makedirs(MODELS, exist_ok=True)
-    print("SmartHome voice setup")
+    print("Sync-Ghar voice setup")
     print("=" * 40)
 
     if not shutil.which("ffmpeg"):
-        print("  note: ffmpeg not found on PATH - install it or server-side voice")
-        print("        will stay off (the browser engine still works).")
+        print("  note: no ffmpeg on PATH - server voice stays off")
+        print("        (the browser engine still works).")
 
     try:
         import vosk  # noqa: F401
@@ -110,7 +116,7 @@ def main():
         print("  run:  pip install -r requirements.txt\n")
         sys.exit(1)
 
-    setup_vosk(args.force)
+    setup_vosk(args.force, "big" if args.big else "small")
     setup_piper(args.force)
 
     print("=" * 40)

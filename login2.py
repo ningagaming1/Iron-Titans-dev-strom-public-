@@ -1,53 +1,53 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 from signup import password_funct, password_matches
 
-# =============================================================
-#  login2.py  ->  "the login + approval system"
-# -------------------------------------------------------------
-#  TWO databases (just two JSON files):
-#
-#    data/users/pending.json  -> people who signed up and are
-#                                WAITING for an admin to approve
-#                                them. They CANNOT log in yet.
-#
-#    data/users/users.json    -> approved people. In this project
-#                                every approved person is also an
-#                                admin, so being in this file means
-#                                "you can log in AND you can approve
-#                                other people".
-#
-#  Flow:  request_account()  -> writes into pending.json
-#         approve(username)   -> moves the record pending -> users
-#         login()             -> only checks users.json
-#
-#  Notes between the two of us are marked "you:" (programmer)
-#  and "me:" (data science engineer).
-# =============================================================
+# login2.py - login + approval.
+# two json files: pending.json (signed up, waiting for an admin, cant
+# log in yet) and users.json (approved, and every approved user is also
+# an admin). request_account() writes pending, approve() moves it to
+# users, login() only checks users.
 
 DATA_DIR = os.path.join("data", "users")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 PENDING_FILE = os.path.join(DATA_DIR, "pending.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
-# how many wrong passwords before we lock an account
+# wrong passwords before an account locks
 MAX_TRIES = 5
 
-# DEVELOPER MODE
-# --------------
-# While True: a new account skips the waiting list and can log in
-# straight away (no admin approval needed). Handy while we build.
-# While False: sign-ups go to pending.json and an admin has to
-# approve them - the flow you test on the Invites tab.
-#
-# It is TOGGLEABLE, so you don't have to edit this file:
-#   * initial value comes from the SMARTHOME_DEV_MODE env var
-#     (1/true/yes/on -> True), otherwise from data/users/settings.json,
-#     otherwise the default below
-#   * an admin can flip it at runtime (Invites tab, or POST /api/devmode);
-#     set_dev_mode() remembers the choice in settings.json
+# after a wrong password the account has to sit out a cooldown before the
+# next try. it doubles with every consecutive miss (5s, 10s, 20s, ...),
+# capped, and clears on a correct login. SMARTHOME_LOGIN_COOLDOWN sets the
+# first step (0 turns the whole thing off).
+try:
+    LOGIN_COOLDOWN = max(0, int(os.environ.get("SMARTHOME_LOGIN_COOLDOWN", "5")))
+except ValueError:
+    LOGIN_COOLDOWN = 5
+LOGIN_COOLDOWN_MAX = 60
+
+
+def _cooldown_secs(failed_attempts):
+    """How long to wait after this many consecutive misses (0 = no wait)."""
+    if failed_attempts <= 0 or LOGIN_COOLDOWN <= 0:
+        return 0
+    return min(LOGIN_COOLDOWN * (2 ** (failed_attempts - 1)), LOGIN_COOLDOWN_MAX)
+
+
+def seconds_until_retry(username):
+    """Seconds this account still has to wait before another login try."""
+    user = load_users().get(username.lower().strip())
+    if not user:
+        return 0
+    return max(0, int(float(user.get("cooldown_until", 0)) - time.time() + 0.999))
+
+# dev mode: True = new accounts skip the waiting list and can log in
+# right away. handy while building. initial value from SMARTHOME_DEV_MODE
+# env var, else settings.json, else the default. an admin can flip it at
+# runtime (Invites tab / POST /api/devmode) and set_dev_mode() saves it.
 DEV_MODE_DEFAULT = False
 
 
@@ -69,27 +69,21 @@ def set_dev_mode(on):
 
 
 def _safe(user):
-    """A copy of a user record with the secret bits removed."""
-    hidden = ("password", "fib_check", "rounds")
+    """A copy of a user record without the secret bits."""
+    hidden = ("password", "fib_check", "rounds", "cooldown_until")
     clean = {k: v for k, v in user.items() if k not in hidden}
     clean["is_admin"] = True          # every approved user is an admin
     return clean
 
 
-# -------------------------------------------------------------
-#  tiny storage helpers (read / write a JSON file safely)
-# -------------------------------------------------------------
+# --- storage helpers ---
 def _now():
-    """Current time as a plain text string, e.g. 2026-08-29T10:30:00+00:00."""
+    """Now as text, e.g. 2026-08-29T10:30:00+00:00."""
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 def _load(path):
-    """
-    Read a JSON file and return a dict.
-    If the file is missing or broken, return an empty dict instead
-    of crashing - handy on the very first run.
-    """
+    """Read a JSON file -> dict. Missing or broken -> empty dict."""
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
     try:
@@ -100,7 +94,7 @@ def _load(path):
 
 
 def _save(path, data):
-    """Write a dict back to a JSON file, nicely indented."""
+    """Write a dict to a JSON file."""
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
     with open(path, "w", encoding="utf-8") as f:
@@ -115,22 +109,17 @@ def load_pending():
     return _load(PENDING_FILE)
 
 
-# read the remembered / env-provided value now that the helpers exist
+# read the remembered / env value now that the helpers exist
 DEV_MODE = _read_dev_mode()
 
 
-# -------------------------------------------------------------
-#  1. SIGNUP  ->  create a pending request
-# -------------------------------------------------------------
+# --- 1. signup -> a pending request ---
 def request_account(username, password):
     """
-    Save a signup request into pending.json.
+    Save a signup request into pending.json. Returns (ok, message).
 
-    Returns (ok, message) so the website / CLI can show the message.
-
-    me (data eng): I'm scrambling the password RIGHT HERE using
-    your password_funct(). That way the real password never even
-    reaches the database file, not even in the waiting list.
+    Password is scrambled here, so the real one never hits any file,
+    not even the waiting list.
     """
     username = username.lower().strip()
 
@@ -147,7 +136,7 @@ def request_account(username, password):
 
     rounds, fib_check, password_hash = password_funct(password)
 
-    # DEV_MODE: don't bother with the waiting list, make the account now.
+    # dev mode: skip the waiting list, make the account now
     if DEV_MODE:
         users[username] = {
             "username": username,
@@ -174,19 +163,14 @@ def request_account(username, password):
     return True, "Request sent. An admin has to approve you before you can log in."
 
 
-# -------------------------------------------------------------
-#  2. ADMIN  ->  see / approve / reject requests
-# -------------------------------------------------------------
+# --- 2. admin: see / approve / reject requests ---
 def list_pending():
     """Return the list of usernames currently waiting for approval."""
     return list(load_pending().keys())
 
 
 def approve(username, approved_by="admin"):
-    """
-    Move one person from pending.json into users.json.
-    After this they can log in, and they are also an admin.
-    """
+    """Move one person from pending.json to users.json. Now they can log in."""
     username = username.lower().strip()
 
     pending = load_pending()
@@ -195,7 +179,7 @@ def approve(username, approved_by="admin"):
     if username not in pending:
         return False, "No pending request with that username."
 
-    record = pending.pop(username)          # take it out of the waiting list
+    record = pending.pop(username)          # off the waiting list
 
     users[username] = {
         "username": username,
@@ -227,43 +211,28 @@ def reject(username):
 
 
 def is_admin(username):
-    """Every approved user is an admin, so this just checks users.json."""
+    """Every approved user is an admin, so just check users.json."""
     return username.lower().strip() in load_users()
 
 
-# -------------------------------------------------------------
-#  3. LOGIN
-# -------------------------------------------------------------
+# --- 3. login ---
 def login(username, password):
     """
-    Try to log a person in.
+    Try to log a person in. Returns (ok, message, user), user is None
+    on failure and has no password bits on success.
 
-    Returns (ok, message, user).
-      ok      -> True / False
-      message -> text to show the user
-      user    -> the user's record (without the password) when ok,
-                 otherwise None
-
-    Rules:
-      * unknown username            -> fail
-      * still waiting for approval  -> fail (tell them to wait)
-      * account locked              -> fail, UNLESS the password given
-                                       is the stored recovery hash
-      * wrong password              -> fail, count the miss,
-                                       lock after MAX_TRIES misses
-      * correct password            -> success; always reset the miss
-                                       counter and clear the lock
+    unknown or still-pending -> fail. locked -> fail unless the password
+    is the stored recovery hash. wrong password -> counts a miss, locks
+    after MAX_TRIES. right password -> clears the counter and the lock.
     """
     username = username.lower().strip()
 
     users = load_users()
     pending = load_pending()
 
-    # not approved yet?
     if username in pending:
         return False, "Your account is still waiting for admin approval.", None
 
-    # never heard of them
     if username not in users:
         return False, "Wrong username or password.", None
 
@@ -271,11 +240,9 @@ def login(username, password):
 
     # locked from too many wrong tries
     if user.get("is_locked", False):
-        # RECOVERY KEY: if you paste the stored password hash from
-        # users.json as the password, we accept it and unlock the
-        # account. It's a convenience for our build - it is NOT a
-        # real security feature, since anyone who can read the file
-        # can get in. Fine for a local hackathon toy.
+        # recovery key: paste the stored password hash from users.json
+        # as the password to unlock. just a build convenience, not real
+        # security - anyone who can read the file gets in. fine for a toy.
         if password == user["password"]:
             user["is_locked"] = False
             user["failed_attempts"] = 0
@@ -286,7 +253,15 @@ def login(username, password):
         return False, ("This account is locked. Paste the recovery hash from "
                        "users.json as the password, or ask an admin to unlock it."), None
 
-    # the real check - re-scramble what they typed and compare
+    # still cooling down from an earlier wrong password?
+    now = time.time()
+    wait = float(user.get("cooldown_until", 0)) - now
+    if wait > 0:
+        secs = int(wait + 0.999)
+        return False, (f"Too many wrong tries. Wait {secs} "
+                       f"second{'' if secs == 1 else 's'} and try again."), None
+
+    # re-scramble what they typed and compare
     ok = password_matches(
         password,
         user["rounds"],
@@ -300,16 +275,23 @@ def login(username, password):
 
         if tries_left <= 0:
             user["is_locked"] = True
+            user.pop("cooldown_until", None)
             _save(USERS_FILE, users)
             return False, "Too many wrong tries. Account locked.", None
 
+        cool = _cooldown_secs(user["failed_attempts"])
+        user["cooldown_until"] = now + cool
         _save(USERS_FILE, users)
+        if cool:
+            return False, (f"Wrong password. Wait {cool} "
+                           f"second{'' if cool == 1 else 's'} - "
+                           f"{tries_left} tries left."), None
         return False, f"Wrong password. {tries_left} tries left.", None
 
-    # success - always clear the miss counter, note the time, hand back
-    # a safe copy (no password / hash bits).
+    # success - clear the counter, note the time, hand back a safe copy
     user["failed_attempts"] = 0
     user["is_locked"] = False
+    user.pop("cooldown_until", None)
     user["last_login"] = _now()
     _save(USERS_FILE, users)
 
@@ -317,23 +299,22 @@ def login(username, password):
 
 
 def unlock(username):
-    """Admin helper: unlock an account and reset its miss counter."""
+    """Admin helper: unlock an account, reset its miss counter."""
     username = username.lower().strip()
     users = load_users()
     if username not in users:
         return False, "No such user."
     users[username]["is_locked"] = False
     users[username]["failed_attempts"] = 0
+    users[username].pop("cooldown_until", None)
     _save(USERS_FILE, users)
     return True, f"'{username}' is unlocked."
 
 
-# -------------------------------------------------------------
-#  4. a small text menu so you can try it without the website
-# -------------------------------------------------------------
+# --- 4. tiny text menu, to try it without the website ---
 def main():
     while True:
-        print("\n==== SMARTHOME ====")
+        print("\n==== SYNC-GHAR ====")
         print("1. Request an account")
         print("2. Log in")
         print("3. (admin) see pending requests")
@@ -361,7 +342,7 @@ def main():
             print("Waiting for approval:", ", ".join(waiting) if waiting else "(nobody)")
 
         elif choice == "4":
-            # only an already-approved admin should do this
+            # only an approved admin should do this
             admin = input("Your (admin) username: ")
             if not is_admin(admin):
                 print("You are not an admin.")
