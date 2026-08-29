@@ -1,7 +1,7 @@
 import re
 
 # =============================================================
-#  intent.py  ->  "plain English  ->  a clear instruction"
+#  intent.py  ->  "plain English  ->   clear instruction"
 # -------------------------------------------------------------
 #  This is the "brain". It does not touch any device. It just
 #  reads a sentence and decides what the person wants:
@@ -76,7 +76,7 @@ def parse(text):
     return _fail("Should I turn that on or off?")
 
 
-# ---- small helpers ----
+# ---- small help ----
 def _ok(action, targets, say):
     return {"ok": True, "action": action, "targets": targets, "say": say}
 
