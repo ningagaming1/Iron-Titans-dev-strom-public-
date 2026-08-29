@@ -1,0 +1,13 @@
+{
+    "admin": {
+        "username": "admin",
+        "rounds": 53,
+        "fib_check": "466b562944913d8d824ad553c55a1dfc6f7c6f663a56c49a011d197df6c8cfc1",
+        "password": "448546ede1a5810a75645d2fe3152f50a0f39eab74423417c03d5888858ef79c",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "system",
+        "approved_at": "2026-08-28T23:21:34+00:00",
+        "last_login": "2026-08-28T23:47:29+00:00"
+    }
+}

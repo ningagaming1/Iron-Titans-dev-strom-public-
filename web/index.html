@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartHome - sign in</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth">
+
+  <main class="card">
+
+    <aside class="brand-side">
+      <div class="wordmark">🏠 <span>Smart<b>Home</b></span></div>
+      <div class="pitch">
+        <h2>The house is on the guest list.<br>You're not - yet.</h2>
+        <p>Sign up, and one of us waves you in.</p>
+        <ul class="points">
+          <li>Lights, fan and the front door from one place</li>
+          <li>Every account approved by hand</li>
+          <li>Passwords scrambled before they're saved</li>
+        </ul>
+      </div>
+      <p class="whisper">a hackathon build - Pranjal - Samarpreet - Ekamjot - Amrit</p>
+    </aside>
+
+    <section class="form-side">
+      <span class="devbadge" id="devBadge"><span class="dot"></span> developer mode</span>
+
+      <!-- LOGIN -->
+      <div id="loginView">
+        <h1>Welcome back</h1>
+        <p class="sub" id="loginSub">Works once an admin has approved your account.</p>
+        <form id="loginForm" autocomplete="off">
+          <label for="loginUser">username</label>
+          <input class="field" id="loginUser" type="text" required>
+          <label for="loginPass">password</label>
+          <input class="field" id="loginPass" type="password" required>
+          <div class="row-end">
+            <button type="button" class="tinybtn" data-toggle="loginPass">show password</button>
+          </div>
+          <button type="submit" class="btn-primary" id="loginBtn">Let me in</button>
+        </form>
+        <div class="note" id="loginNote"></div>
+        <p class="swap">New here? <a class="link" id="toSignup">Ask for an account</a></p>
+      </div>
+
+      <!-- SIGN UP -->
+      <div id="signupView" class="hidden">
+        <h1 id="suTitle">Ask for an account</h1>
+        <p class="sub" id="suSub">We put you on the list. An admin lets people in one by one.</p>
+        <form id="signupForm" autocomplete="off">
+          <label for="suUser">pick a username</label>
+          <input class="field" id="suUser" type="text" required>
+          <label for="suPass">pick a password</label>
+          <input class="field" id="suPass" type="password" required>
+          <label for="suPass2">type it again</label>
+          <input class="field" id="suPass2" type="password" required>
+          <div class="row-end">
+            <button type="button" class="tinybtn" data-toggle="suPass">show password</button>
+          </div>
+          <button type="submit" class="btn-primary" id="suBtn">Put me on the list</button>
+        </form>
+        <div class="note" id="suNote"></div>
+        <p class="swap">Already have an account? <a class="link" id="toLogin">Back to sign in</a></p>
+      </div>
+
+      <p class="footnote">the lights listen. eventually.</p>
+    </section>
+
+  </main>
+
+  <script src="/auth.js"></script>
+</body>
+</html>

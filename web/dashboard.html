@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartHome - dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body class="dark">
+<div class="wrap">
+
+  <header>
+    <div class="brand">🏠 Smart<b>Home</b></div>
+    <div class="who">
+      <div>
+        <div class="name" id="who">user</div>
+        <div class="role" id="role">member</div>
+      </div>
+      <div class="avatar" id="avatar">U</div>
+      <button id="logout">Log out</button>
+    </div>
+  </header>
+
+  <section class="welcome">
+    <h1>Welcome home, <span id="welcomeName">there</span>.</h1>
+    <p>Use the buttons, your voice, or type a command.</p>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab active" data-tab="control">Control</button>
+    <button class="tab" data-tab="invites">Invites<span class="badge" id="inviteBadge">0</span></button>
+  </nav>
+
+  <!-- CONTROL -->
+  <div class="page active" id="page-control">
+
+    <section class="panel">
+      <h2>Command <span class="hint" id="micStatus">tap the mic or type</span></h2>
+      <div class="voice">
+        <button class="mic" id="mic" title="Speak a command">🎙</button>
+        <div class="voice-info">
+          <small>you said</small>
+          <div class="heard" id="heard">Try "turn on the light"</div>
+        </div>
+      </div>
+      <form class="cmd-row" id="cmdForm">
+        <input class="field" id="cmdInput" type="text" autocomplete="off"
+               placeholder='e.g. "turn on the fan" or "lock the door"'>
+        <button type="submit">Send</button>
+      </form>
+      <div class="status" id="status"></div>
+      <div class="voice-note" id="voiceNote"></div>
+    </section>
+
+    <div class="strip"><h2>Your devices</h2><span id="deviceCount">0 on</span></div>
+
+    <section class="devices">
+      <article class="device">
+        <div class="device-top"><div class="device-icon">💡</div><div class="state" id="lightState">OFF</div></div>
+        <h3>Living Room Light</h3><p>Living Room</p>
+        <button id="lightBtn">Turn On</button>
+      </article>
+      <article class="device">
+        <div class="device-top"><div class="device-icon">🌀</div><div class="state" id="fanState">OFF</div></div>
+        <h3>Ceiling Fan</h3><p>Living Room</p>
+        <button id="fanBtn">Turn On</button>
+      </article>
+      <article class="device">
+        <div class="device-top"><div class="device-icon">🚪</div><div class="state on" id="doorState">LOCKED</div></div>
+        <h3>Main Door</h3><p>Entrance</p>
+        <button id="doorBtn">Unlock Door</button>
+      </article>
+    </section>
+
+    <section class="panel">
+      <h2>Quick controls</h2>
+      <div class="quick">
+        <button id="allOn">Everything on</button>
+        <button id="allOff">Everything off</button>
+        <button id="lockDoor">Lock the door</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Recent activity <button class="textbtn" id="clearLog">clear</button></h2>
+      <div id="log"><div class="empty">no activity yet</div></div>
+    </section>
+
+  </div>
+
+  <!-- INVITES -->
+  <div class="page" id="page-invites">
+    <section class="panel">
+      <h2>People asking to join <button class="textbtn" id="refreshInvites">refresh</button></h2>
+      <p class="hint" id="inviteNote">Accept someone and they can log in. Decline drops their request.</p>
+      <div id="pending" style="margin-top:12px;"><div class="empty">loading...</div></div>
+    </section>
+  </div>
+
+  <footer>SmartHome - hackathon prototype</footer>
+
+</div>
+
+<script src="/dashboard.js"></script>
+</body>
+</html>

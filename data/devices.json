@@ -1,0 +1,27 @@
+{
+    "light": false,
+    "fan": false,
+    "door_locked": true,
+    "activity": [
+        {
+            "text": "admin turned the fan off",
+            "icon": "fan",
+            "at": "23:56"
+        },
+        {
+            "text": "admin turned the light off",
+            "icon": "light",
+            "at": "23:56"
+        },
+        {
+            "text": "admin turned the light on",
+            "icon": "light",
+            "at": "23:56"
+        },
+        {
+            "text": "admin cleared the activity log",
+            "icon": "info",
+            "at": "23:49"
+        }
+    ]
+}
