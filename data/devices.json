@@ -4,64 +4,64 @@
     "door_locked": true,
     "activity": [
         {
-            "text": "user1 locked the door",
+            "text": "admin turned everything off",
+            "icon": "night",
+            "at": "10:49"
+        },
+        {
+            "text": "admin turned everything on",
+            "icon": "bulk",
+            "at": "10:49"
+        },
+        {
+            "text": "admin locked the door",
             "icon": "lock",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 unlocked the door",
+            "text": "admin unlocked the door",
             "icon": "unlock",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 turned the fan off",
+            "text": "admin turned the fan off",
             "icon": "fan",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 turned the fan on",
+            "text": "admin turned the fan on",
             "icon": "fan",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 turned the light off",
+            "text": "admin turned the light off",
             "icon": "light",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 turned the light on",
+            "text": "admin turned the light on",
             "icon": "light",
-            "at": "09:59"
+            "at": "10:49"
         },
         {
-            "text": "user1 turned the fan off",
-            "icon": "fan",
-            "at": "09:58"
-        },
-        {
-            "text": "user1 turned the fan on",
-            "icon": "fan",
-            "at": "09:58"
-        },
-        {
-            "text": "user1 turned the light off",
+            "text": "admin turned the light off",
             "icon": "light",
-            "at": "09:58"
+            "at": "10:02"
         },
         {
-            "text": "user1 turned the light on",
+            "text": "admin turned the light on",
             "icon": "light",
-            "at": "09:58"
+            "at": "10:02"
         },
         {
-            "text": "user1 turned the fan off",
-            "icon": "fan",
-            "at": "09:58"
+            "text": "admin turned the light off",
+            "icon": "light",
+            "at": "10:02"
         },
         {
-            "text": "user1 turned the fan on",
-            "icon": "fan",
-            "at": "09:58"
+            "text": "admin turned the light on",
+            "icon": "light",
+            "at": "10:02"
         }
     ]
 }
