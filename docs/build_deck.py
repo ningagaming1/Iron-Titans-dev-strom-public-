@@ -1,5 +1,5 @@
 """
-build_deck.py - builds docs/SmartHome.pptx (~50 slides).
+build_deck.py - builds docs/Sync-Ghar.pptx (~50 slides).
 
     .venv/bin/python docs/build_deck.py
 
@@ -17,7 +17,7 @@ from pptx.enum.lang import MSO_LANGUAGE_ID
 from pptx.oxml.ns import qn
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "SmartHome.pptx")
+OUT = os.path.join(HERE, "Sync-Ghar.pptx")
 
 # palette, from web/style.css
 PAPER      = RGBColor(0xFD, 0xF9, 0xEF)
@@ -202,7 +202,7 @@ TOTAL = 59  # fixed up on the second pass
 
 def footer(s, dark=False):
     text(s, MARGIN, EMU_H - Inches(0.5), Inches(4), Inches(0.3),
-         "SmartHome  -  Iron Titans", size=9.5,
+         "Sync-Ghar  -  Iron Titans", size=9.5,
          color=(RGBColor(0x8A, 0x82, 0x70) if dark else INK_SOFT), font=MONO_FONT)
     text(s, EMU_W - MARGIN - Inches(1.4), EMU_H - Inches(0.5), Inches(1.4), Inches(0.3),
          f"{_num:02d} / {TOTAL}", size=9.5, align=PP_ALIGN.RIGHT,
@@ -352,7 +352,7 @@ rect(s, 0, 0, Inches(0.18), EMU_H, ACCENT)
 text(s, MARGIN, Inches(1.5), CONTENT_W, Inches(0.5), "HACKATHON BUILD  -  IRON TITANS",
      size=13, color=ACCENT, bold=True, font=MONO_FONT)
 text(s, MARGIN, Inches(2.2), CONTENT_W, Inches(1.6),
-     [("SmartHome", {})], size=68, color=CREAM, bold=True, font=HEAD_FONT)
+     [("Sync-Ghar", {})], size=68, color=CREAM, bold=True, font=HEAD_FONT)
 text(s, MARGIN, Inches(3.6), CONTENT_W, Inches(0.9),
      "The house is on the guest list. Control the lights, the fan and the front "
      "door by click, by type, or by voice - offline and free.",

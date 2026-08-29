@@ -137,10 +137,13 @@ def _command_grammar():
         words = set()
         for d in (intent.DEVICE_WORDS,):
             words |= set(d)
-        for s in (intent.TURN_ON_WORDS, intent.TURN_OFF_WORDS,
-                  intent.OPEN_WORDS, intent.CLOSE_WORDS, intent.EVERYTHING_WORDS):
+        for s in (intent.TURN_ON_WORDS, intent.TURN_OFF_WORDS, intent.OPEN_WORDS,
+                  intent.CLOSE_WORDS, intent.EVERYTHING_WORDS, intent.DIM_WORDS):
             words |= set(s)
-        words |= {"turn", "switch", "the", "a", "please", "my", "to", "power", "you", "can"}
+        for dev in devices.catalog():
+            words |= set(dev.get("words", []))
+        words |= {"turn", "switch", "the", "a", "please", "my", "to", "power",
+                  "you", "can", "percent"}
         _GRAMMAR_JSON = json.dumps([" ".join(sorted(words)), "[unk]"])
     return _GRAMMAR_JSON
 
@@ -177,8 +180,10 @@ def _recognize(pcm, grammar=None, alts=1):
 def _vocab():
     v = set(intent.DEVICE_WORDS)
     for s in (intent.TURN_ON_WORDS, intent.TURN_OFF_WORDS, intent.OPEN_WORDS,
-              intent.CLOSE_WORDS, intent.EVERYTHING_WORDS):
+              intent.CLOSE_WORDS, intent.EVERYTHING_WORDS, intent.DIM_WORDS):
         v |= set(s)
+    for dev in devices.catalog():
+        v |= set(dev.get("words", []))
     return v
 
 
@@ -273,7 +278,7 @@ def answer(text, who="someone"):
         return {"reply": "I didn't catch that. Try again?", "house": devices.get_state(),
                 "ok": False, "kind": "unknown"}
 
-    parsed = intent.parse(text)
+    parsed = intent.parse(text, devices.catalog())
     if parsed.get("ok"):
         say, house = devices.apply(parsed, who)
         return {"reply": say, "house": house, "ok": True, "kind": "device"}

@@ -55,15 +55,21 @@ try {
 $("toSignup").onclick = () => { $("loginView").classList.add("hidden"); $("signupView").classList.remove("hidden"); };
 $("toLogin").onclick  = () => { $("signupView").classList.add("hidden"); $("loginView").classList.remove("hidden"); };
 
-/* show / hide password */
+/* show / hide password (eye button - keep the icon, just flip a class) */
 document.querySelectorAll("[data-toggle]").forEach((btn) => {
   btn.onclick = () => {
     const f = $(btn.dataset.toggle);
-    const showing = f.type === "text";
-    f.type = showing ? "password" : "text";
-    btn.textContent = showing ? "show password" : "hide password";
+    const show = f.type === "password";
+    f.type = show ? "text" : "password";
+    btn.classList.toggle("open", show);
+    btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
   };
 });
+
+/* "forgot password" - there's no email flow, so just point at an admin */
+const forgot = $("forgot");
+if (forgot) forgot.onclick = () =>
+  note("loginNote", "No reset link yet - ask an admin to unlock or re-approve your account.", "err");
 
 /* little arrows that swing to point at the cursor */
 (function () {
@@ -123,20 +129,52 @@ $("suPass").addEventListener("input", () => {
 });
 
 /* login */
+const loginLabel = $("loginBtnLabel");
+
+/* after a wrong password the server makes you wait - count it down on
+   the button so it's obvious why the form won't submit. */
+let cooldownTimer = null;
+function startLoginCooldown(secs) {
+  clearInterval(cooldownTimer);
+  const btn = $("loginBtn");
+  let left = Math.max(1, Math.ceil(secs));
+  btn.disabled = true;
+  const tick = () => {
+    if (left <= 0) {
+      clearInterval(cooldownTimer);
+      btn.disabled = false;
+      loginLabel.textContent = "Let me in";
+      return;
+    }
+    loginLabel.textContent = "wait " + left + "s";
+    left--;
+  };
+  tick();
+  cooldownTimer = setInterval(tick, 1000);
+}
+
 $("loginForm").onsubmit = async (e) => {
   e.preventDefault();
+  if ($("loginBtn").disabled) return;
   const username = $("loginUser").value.trim();
   const password = $("loginPass").value;
   if (!username || !password) return note("loginNote", "Fill in both boxes.", "err");
 
   const btn = $("loginBtn");
-  btn.disabled = true; btn.textContent = "checking...";
+  btn.disabled = true; loginLabel.textContent = "checking...";
   const data = await post("/api/login", { username, password });
-  btn.disabled = false; btn.textContent = "Let me in";
 
-  if (!data.ok) return note("loginNote", data.message, "err");
+  if (!data.ok) {
+    note("loginNote", data.message, "err");
+    if (data.retry_after) startLoginCooldown(data.retry_after);
+    else { btn.disabled = false; loginLabel.textContent = "Let me in"; }
+    return;
+  }
 
+  loginLabel.textContent = "Let me in";
   localStorage.setItem("smarthome_user", JSON.stringify(data.user));
+  // tell the dashboard to say the welcome line once, this tab only
+  try { sessionStorage.setItem("syncghar_greet", "1"); } catch (e) {}
   location.href = "dashboard.html";
 };
 

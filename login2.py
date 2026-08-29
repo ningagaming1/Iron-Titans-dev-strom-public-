@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import datetime, timezone
 
 from signup import password_funct, password_matches
@@ -17,6 +18,31 @@ SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 # wrong passwords before an account locks
 MAX_TRIES = 5
+
+# after a wrong password the account has to sit out a cooldown before the
+# next try. it doubles with every consecutive miss (5s, 10s, 20s, ...),
+# capped, and clears on a correct login. SMARTHOME_LOGIN_COOLDOWN sets the
+# first step (0 turns the whole thing off).
+try:
+    LOGIN_COOLDOWN = max(0, int(os.environ.get("SMARTHOME_LOGIN_COOLDOWN", "5")))
+except ValueError:
+    LOGIN_COOLDOWN = 5
+LOGIN_COOLDOWN_MAX = 60
+
+
+def _cooldown_secs(failed_attempts):
+    """How long to wait after this many consecutive misses (0 = no wait)."""
+    if failed_attempts <= 0 or LOGIN_COOLDOWN <= 0:
+        return 0
+    return min(LOGIN_COOLDOWN * (2 ** (failed_attempts - 1)), LOGIN_COOLDOWN_MAX)
+
+
+def seconds_until_retry(username):
+    """Seconds this account still has to wait before another login try."""
+    user = load_users().get(username.lower().strip())
+    if not user:
+        return 0
+    return max(0, int(float(user.get("cooldown_until", 0)) - time.time() + 0.999))
 
 # dev mode: True = new accounts skip the waiting list and can log in
 # right away. handy while building. initial value from SMARTHOME_DEV_MODE
@@ -44,7 +70,7 @@ def set_dev_mode(on):
 
 def _safe(user):
     """A copy of a user record without the secret bits."""
-    hidden = ("password", "fib_check", "rounds")
+    hidden = ("password", "fib_check", "rounds", "cooldown_until")
     clean = {k: v for k, v in user.items() if k not in hidden}
     clean["is_admin"] = True          # every approved user is an admin
     return clean
@@ -227,6 +253,14 @@ def login(username, password):
         return False, ("This account is locked. Paste the recovery hash from "
                        "users.json as the password, or ask an admin to unlock it."), None
 
+    # still cooling down from an earlier wrong password?
+    now = time.time()
+    wait = float(user.get("cooldown_until", 0)) - now
+    if wait > 0:
+        secs = int(wait + 0.999)
+        return False, (f"Too many wrong tries. Wait {secs} "
+                       f"second{'' if secs == 1 else 's'} and try again."), None
+
     # re-scramble what they typed and compare
     ok = password_matches(
         password,
@@ -241,15 +275,23 @@ def login(username, password):
 
         if tries_left <= 0:
             user["is_locked"] = True
+            user.pop("cooldown_until", None)
             _save(USERS_FILE, users)
             return False, "Too many wrong tries. Account locked.", None
 
+        cool = _cooldown_secs(user["failed_attempts"])
+        user["cooldown_until"] = now + cool
         _save(USERS_FILE, users)
+        if cool:
+            return False, (f"Wrong password. Wait {cool} "
+                           f"second{'' if cool == 1 else 's'} - "
+                           f"{tries_left} tries left."), None
         return False, f"Wrong password. {tries_left} tries left.", None
 
     # success - clear the counter, note the time, hand back a safe copy
     user["failed_attempts"] = 0
     user["is_locked"] = False
+    user.pop("cooldown_until", None)
     user["last_login"] = _now()
     _save(USERS_FILE, users)
 
@@ -264,6 +306,7 @@ def unlock(username):
         return False, "No such user."
     users[username]["is_locked"] = False
     users[username]["failed_attempts"] = 0
+    users[username].pop("cooldown_until", None)
     _save(USERS_FILE, users)
     return True, f"'{username}' is unlocked."
 
@@ -271,7 +314,7 @@ def unlock(username):
 # --- 4. tiny text menu, to try it without the website ---
 def main():
     while True:
-        print("\n==== SMARTHOME ====")
+        print("\n==== SYNC-GHAR ====")
         print("1. Request an account")
         print("2. Log in")
         print("3. (admin) see pending requests")

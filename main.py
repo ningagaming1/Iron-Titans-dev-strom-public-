@@ -5,10 +5,19 @@ main.py - one command to run the whole thing.
     python main.py --reset    wipe the dbs, reseed, then start
     python main.py --check    run self-tests and exit, no server
     python main.py --port 9000
+    python main.py --https    serve over https so other wifi devices
+                              can use the mic (needs the openssl command)
+    python main.py --find     search the wifi for a running Sync-Ghar
+                              and print its address, then exit
     python main.py --debug    show full tracebacks
 
 Order: check python + files, seed an admin if there's none,
 self-test every module, start the server.
+
+The server always listens on every network interface, so other
+devices on the same wifi can open it at http://<this-machine-ip>:8000
+(the address is printed on startup). It also runs a small discovery
+beacon so `python main.py --find` on another machine can locate it.
 
 Starter admin -> username: admin  password: admin123
 """
@@ -219,6 +228,25 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("devices round-trip", e)
 
+    # devices: add a dimmer, drive it, remove it
+    try:
+        made, _, _ = devices.add_device(
+            {"name": "Patio Glow", "room": "Patio", "type": "dimmer", "icon": "*"},
+            "self-test")
+        assert made
+        new_id = devices.list_devices()[-1]["id"]
+        devices.set_device(new_id, 40, "self-test")
+        assert devices.list_devices()[-1]["level"] == 40
+        devices.apply(
+            intent.parse("dim the patio glow to 10", devices.catalog()), "self-test")
+        assert devices.list_devices()[-1]["level"] == 10
+        gone, _, _ = devices.remove_device(new_id, "self-test")
+        assert gone
+        assert devices.remove_device("light", "self-test")[0] is False   # builtin
+        ok("devices.add_device / dimmer / remove_device")
+    except Exception as e:
+        bad("devices add/remove", e)
+
     # login: request -> approve if needed -> login
     # works with dev mode on or off
     try:
@@ -234,12 +262,32 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("login2.login", e)
 
+    # login cooldown: a wrong password makes you sit out a wait
+    try:
+        login2.request_account("cooldowner", "pw123456")
+        if "cooldowner" in login2.load_pending():
+            login2.approve("cooldowner", approved_by="self-test")
+        saved = login2.LOGIN_COOLDOWN
+        login2.LOGIN_COOLDOWN = 30
+        try:
+            assert login2.login("cooldowner", "nope")[0] is False
+            assert login2.seconds_until_retry("cooldowner") > 0
+            # even the right password is refused until the wait is over
+            assert login2.login("cooldowner", "pw123456")[0] is False
+        finally:
+            login2.LOGIN_COOLDOWN = saved
+        login2.unlock("cooldowner")
+        assert login2.seconds_until_retry("cooldowner") == 0
+        ok("login2 cooldown after a wrong password")
+    except Exception as e:
+        bad("login2 cooldown", e)
+
 
 # --- put it together ---
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="main.py",
-        description="Run the whole SmartHome project with one command.")
+        description="Run the whole Sync-Ghar project with one command.")
     parser.add_argument("--port", type=int, default=8000,
                         help="port for the web server (default 8000)")
     parser.add_argument("--reset", action="store_true",
@@ -248,10 +296,24 @@ def main(argv=None):
                         help="run the self-tests and exit, don't start the server")
     parser.add_argument("--debug", action="store_true",
                         help="show full tracebacks on error")
+    parser.add_argument("--https", action="store_true",
+                        help="serve over https (self-signed cert) so other "
+                             "devices on the wifi can use the mic too")
+    parser.add_argument("--find", action="store_true",
+                        help="search the wifi for a running Sync-Ghar server "
+                             "and print its address, then exit")
+    parser.add_argument("--no-discovery", action="store_true",
+                        help="don't run the discovery beacon (--find won't see this one)")
     args = parser.parse_args(argv)
 
+    if args.find:
+        import discovery
+        print("\nSearching the wifi for Sync-Ghar servers ...\n")
+        discovery._print_results(discovery.discover())
+        raise SystemExit(0)
+
     print()
-    line("SmartHome - main.py")
+    line("Sync-Ghar - main.py")
 
     try:
         check_environment()
@@ -290,7 +352,7 @@ def main(argv=None):
 
     line("starting server")
     import app
-    app.serve(port=args.port)
+    app.serve(port=args.port, https=args.https, discovery=not args.no_discovery)
 
 
 if __name__ == "__main__":

@@ -93,7 +93,7 @@ def setup_piper(force):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Download SmartHome's offline voice models.")
+    ap = argparse.ArgumentParser(description="Download Sync-Ghar's offline voice models.")
     ap.add_argument("--force", action="store_true", help="re-download even if present")
     ap.add_argument("--big", action="store_true",
                     help="bigger STT model (128 MB) - better free speech, "
@@ -101,7 +101,7 @@ def main():
     args = ap.parse_args()
 
     os.makedirs(MODELS, exist_ok=True)
-    print("SmartHome voice setup")
+    print("Sync-Ghar voice setup")
     print("=" * 40)
 
     if not shutil.which("ffmpeg"):
