@@ -1,67 +1,93 @@
 {
-    "light": false,
-    "fan": false,
-    "door_locked": true,
+    "devices": [
+        {
+            "id": "light",
+            "name": "Living Room Light",
+            "room": "Living Room",
+            "type": "toggle",
+            "icon": "\ud83d\udca1",
+            "on": false,
+            "builtin": true
+        },
+        {
+            "id": "fan",
+            "name": "Ceiling Fan",
+            "room": "Living Room",
+            "type": "toggle",
+            "icon": "\ud83c\udf00",
+            "on": false,
+            "builtin": true
+        },
+        {
+            "id": "door",
+            "name": "Main Door",
+            "room": "Entrance",
+            "type": "lock",
+            "icon": "\ud83d\udd12",
+            "locked": true,
+            "builtin": true
+        }
+    ],
     "activity": [
         {
-            "text": "admin turned everything off",
-            "icon": "night",
-            "at": "10:49"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned everything on",
-            "icon": "bulk",
-            "at": "10:49"
+            "text": "admin turned Living Room Light on",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin locked the door",
-            "icon": "lock",
-            "at": "10:49"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin unlocked the door",
-            "icon": "unlock",
-            "at": "10:49"
+            "text": "admin turned Living Room Light on",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned the fan off",
-            "icon": "fan",
-            "at": "10:49"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned the fan on",
-            "icon": "fan",
-            "at": "10:49"
+            "text": "admin turned Living Room Light on",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned the light off",
-            "icon": "light",
-            "at": "10:49"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned the light on",
-            "icon": "light",
-            "at": "10:49"
+            "text": "admin turned Living Room Light on",
+            "icon": "\ud83d\udca1",
+            "at": "01:10"
         },
         {
-            "text": "admin turned the light off",
-            "icon": "light",
-            "at": "10:02"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:09"
         },
         {
-            "text": "admin turned the light on",
-            "icon": "light",
-            "at": "10:02"
+            "text": "ekaam turned everything on",
+            "icon": "\u26a1",
+            "at": "01:09"
         },
         {
-            "text": "admin turned the light off",
-            "icon": "light",
-            "at": "10:02"
+            "text": "admin turned Living Room Light off",
+            "icon": "\ud83d\udca1",
+            "at": "01:09"
         },
         {
-            "text": "admin turned the light on",
-            "icon": "light",
-            "at": "10:02"
+            "text": "ekaam turned everything on",
+            "icon": "\u26a1",
+            "at": "01:09"
         }
     ]
 }

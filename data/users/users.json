@@ -8,7 +8,7 @@
         "failed_attempts": 0,
         "approved_by": "system",
         "approved_at": "2026-08-28T23:21:34+00:00",
-        "last_login": "2026-08-29T05:56:12+00:00"
+        "last_login": "2026-08-29T19:37:11+00:00"
     },
     "user": {
         "username": "user",
@@ -40,5 +40,38 @@
         "failed_attempts": 0,
         "approved_by": "admin",
         "approved_at": "2026-08-29T05:21:42+00:00"
+    },
+    "amrit": {
+        "username": "amrit",
+        "rounds": 19,
+        "fib_check": "d6acb3c1a79e57bcc03d976cb4d98f56edccd4cf426392e8cd4b01b965ab808b",
+        "password": "bce6ec1d94ce89648f7ed34fa8d9691b68d5eeca6abfecae569e07f50c5598c1",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "admin",
+        "approved_at": "2026-08-29T16:42:56+00:00",
+        "last_login": "2026-08-29T19:34:13+00:00"
+    },
+    "ekaam": {
+        "username": "ekaam",
+        "rounds": 52,
+        "fib_check": "8604205a322456a1ddf6fbd00a3ac55f8ee5de7e1362813181dbc10a9004f599",
+        "password": "c76d2ce820fc611e9e70d00b066bd800a63ae9eee6a207780bbb2ab4f73d7319",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "amrit",
+        "approved_at": "2026-08-29T16:46:10+00:00",
+        "last_login": "2026-08-29T19:34:56+00:00"
+    },
+    "armaan": {
+        "username": "armaan",
+        "rounds": 98,
+        "fib_check": "bbbcfd5c4560794da7d2122ccde0641b3ec8a344af0bfdef9497e1ed1bb63f00",
+        "password": "4faebe9ed2011e640ff0a6d9988c363f4c248fd6f1f82bd7e052a8f59cd0dde4",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "ekaam",
+        "approved_at": "2026-08-29T16:52:46+00:00",
+        "last_login": "2026-08-29T16:53:02+00:00"
     }
 }

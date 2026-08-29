@@ -4,28 +4,17 @@ import login2
 import devices
 from signup import password_funct
 
-# =============================================================
-#  seed.py  ->  "start everything from scratch"
-# -------------------------------------------------------------
-#  Run this once, or any time you want a clean slate:
-#
-#      python seed.py
-#
-#  It empties the databases and creates one starter admin so
-#  somebody can log in and approve the rest of the team.
-#
-#      username: admin
-#      password: admin123
-#
-#  Change these before the demo if you want.
-# =============================================================
+# seed.py - start from scratch.
+# run `python seed.py` for a clean slate: empties the dbs and makes one
+# starter admin (admin / admin123) so someone can log in and approve
+# the rest. change these before the demo if you want.
 
 FIRST_ADMIN = "admin"
 FIRST_PASSWORD = "admin123"
 
 
 def main():
-    # 1. empty the user databases
+    # empty the user dbs
     login2._save(login2.PENDING_FILE, {})
 
     rounds, fib_check, password_hash = password_funct(FIRST_PASSWORD)
@@ -42,7 +31,7 @@ def main():
         }
     })
 
-    # 2. reset the house (all devices off, door locked, no history)
+    # reset the house (all off, door locked, no history)
     devices.reset()
 
     print("Databases reset.")

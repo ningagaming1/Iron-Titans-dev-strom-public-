@@ -1,21 +1,12 @@
 """
-text_to_speech.py
-------------------
-A drop-in Text-to-Speech (TTS) module designed to plug into a voice pipeline
-that already has a Speech-to-Text (STT) module.
+tts.py - a drop-in text-to-speech module for the voice pipeline.
 
-Pipeline this fits into:
+    mic -> STT -> text -> website shows it -> THIS: speak it back
+                                           -> user confirms -> backend
 
-    [Mic Input] -> [STT module] -> text -> [Website displays text]
-                                          -> [THIS MODULE: TTS] -> user hears it back
-                                          -> (if user confirms) -> [Backend]
-
-Two engines are supported:
-    1. OFFLINE  -> pyttsx3   (no internet needed, works instantly, robotic-ish voice)
-    2. ONLINE   -> gTTS      (needs internet, Google's voice, sounds more natural)
-
-Both are wrapped behind the SAME interface (TextToSpeech class) so you can
-swap engines without changing the rest of your code.
+Two engines behind one TextToSpeech class so you can swap them:
+    offline -> pyttsx3  (no internet, instant, robotic)
+    online  -> gTTS     (needs internet, google voice, more natural)
 """
 
 import os
@@ -25,10 +16,11 @@ import tempfile
 class TextToSpeech:
     def __init__(self, engine="offline", rate=150, volume=1.0, voice_lang="en"):
         """
-        engine     : if offline-pyttsx3 or if online-gTTS
-        rate       : speaking speed 
-        volume     : 0.0 to 1.0 (offline engine only)
-        voice_lang : language code -"en" for english 
+        engine: "offline" (pyttsx3) or "online" (gTTS).
+        rate: speaking speed (offline only).
+        volume: 0.0 to 1.0 (offline engine only).
+        voice_lang: language code ("en" for English; mostly used by online engines).
+
         """
         self.engine_type = engine
         self.voice_lang = voice_lang
@@ -45,11 +37,8 @@ class TextToSpeech:
         else:
             raise ValueError("engine must be 'offline' or 'online'")
 
-    #Bot speaks immediately and user rehear on the spot 
-    def speak(self, text: str):
-        
-        #Converts text to speech and plays it immediately through the speakers.
-        
+        """Speak `text` out loud immediately."""
+
         if not text or not text.strip():
             raise ValueError("No text provided to speak.")
         
@@ -58,19 +47,18 @@ class TextToSpeech:
             self.engine.say(text)
             self.engine.runAndWait()
         else:
-            # online engine
+            # online: render to a temp file, play it, delete it
+
             path = self.save(text)
             self._play_audio_file(path)
             os.remove(path)
 
-    #Save to a file to send to backend
+    # save to an audio file (for the backend, or to feed back into STT)
     def save(self, text: str, filename: str = None) -> str:
         """
-        Converts tts and saves it as an audio file.
-        Returns the file path and attach it to backend request
-        or feed backs in STT module for testing.
+        Render `text` to an audio file and return its path. Used for backend or to feed back into STT.
+        No filename given -> a temp .wav/.mp3 is made for you.
 
-        filename: if you don't give one, a temp .mp3/.wav is created for you.
         """
         if not text or not text.strip():
             raise ValueError("No text provided to save.")
@@ -87,9 +75,8 @@ class TextToSpeech:
 
         return filename
 
-    #play any audio file 
-    # 
-    # used by online engine 
+    # play any audio file (used by the online engine)
+
     def _play_audio_file(self, path: str):
         from playsound import playsound
         playsound(path)
@@ -100,34 +87,19 @@ class TextToSpeech:
         return path
 
 
-
-#welcomes user
-def welcome():
-    recognized_text = "Welcome to SyncGhar."
-
-    tts = TextToSpeech(engine="offline")   # switch to "online" if you want gTTS
-
-    # user will rehear 
-    tts.speak(recognized_text)
-
-    #Save the confirmed text as audio too, in case the backend
-    # expects an audio file with the transcript
-    audio_path = tts.save(recognized_text, filename="confirmed_output.wav")
-    print(f"Saved audio for backend at: {audio_path}")
-
-# STT -> website -> backend flow
+# example: STT -> website -> backend flow
 if __name__ == "__main__":
-    welcome()
+    # hardcoded for now; later swap in your real STT call
     recognized_text = "This is the text that came from the speech to text module."
 
-    tts = TextToSpeech(engine="offline")   # switch to "online" if you want gTTS
+    tts = TextToSpeech(engine="offline")   # "online" for gTTS
 
-    # user will rehear 
+    # let the user rehear what was recognized
     tts.speak(recognized_text)
 
-    #Save the confirmed text as audio too, in case the backend
-    # expects an audio file with the transcript
+    # save it too, in case the backend wants an audio file
     audio_path = tts.save(recognized_text, filename="confirmed_output.wav")
     print(f"Saved audio for backend at: {audio_path}")
 
-   
+    # then send recognized_text and/or audio_path to your backend
+

@@ -1,17 +1,15 @@
-import json  #for reading json file
-import hashlib #for cryptography of passwords
-import uuid #to generate unique id
-import os #for folder or file operators
-from datetime import datetime #for track of time 
+import json
+import hashlib
+import uuid
+import os
+from datetime import datetime
 
 data_dir = "data/users"
 file_path = os.path.join(data_dir, "users.json")
 
-# Data helpers (with automatic migration)
+# data helpers (auto-migrate old format)
 def ensure_data_file():
-    
-    """Checks if data folder and file exists,
-      if not then creates one"""
+    """Make the data folder + file if they're missing."""
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
 
@@ -29,7 +27,7 @@ def migrate_old_format(data):
     if "admins" in data or "users" in data or "signup_requests" in data:
         return data
 
-    # Old format: top-level keys are user profiles
+    # old format: top-level keys are the user profiles
     old_users = data
 
     new_data = {
@@ -41,8 +39,7 @@ def migrate_old_format(data):
 
 
 def load_data():
-    #Load data from users.json, automatically migrats from old format if needed.
-
+    # load users.json, migrate the old format if needed
     ensure_data_file()
 
     try:
@@ -57,7 +54,7 @@ def load_data():
 
     data = migrate_old_format(raw_data)
 
-    # Save migrated data back so future loads are in new format
+    # write it back so later loads are already in the new format
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
@@ -65,27 +62,20 @@ def load_data():
 
 
 def save_data(data):
-    #Save data back to users.json.
     ensure_data_file()
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
-# Cryptography of passwords
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 
 def is_admin(data, username: str) -> bool:
-    #Check if a username is in the admins list.
     return username in data.get("admins", [])
 
-# Signup (request) flow
+# signup request flow
 def signup_request():
-    """
-    New user signup with admin approval:
-    - Creates a pending request in signup_requests.
-    - User cannot log in until an admin approves.
-    """
+    """New signup -> a pending request. Cant log in till an admin approves."""
     data = load_data()
 
     print("\n=== SIGNUP REQUEST ===")
@@ -94,12 +84,12 @@ def signup_request():
         print("❌ Username cannot be empty")
         return
 
-    # Check if already a user
+    # already a user?
     if username in data.get("users", {}):
         print("❌ Username already exists")
         return
 
-    # Check if already has a pending request
+    # already asked?
     if username in data.get("signup_requests", {}):
         print("⚠️ You already have a pending signup request")
         return
@@ -125,18 +115,14 @@ def signup_request():
     save_data(data)
     print("✔ Signup request sent. Wait for admin approval.")
 
-# Admin login
+# admin login
 def admin_login():
-    """
-    Admin login:
-    - If no admins exist, allows creating the first admin.
-    - Otherwise, requires username and password and checks admin status.
-    """
+    """First run with no admins creates one, otherwise checks user+password."""
     data = load_data()
 
     print("\n=== ADMIN LOGIN ===")
 
-    # If no admins exist then create the first admin
+    # no admins yet -> create the first one
     if not data.get("admins"):
         print("⚠️ No admins exist yet. Creating the first admin.")
         username = input("First admin username: ").lower().strip()
@@ -167,7 +153,7 @@ def admin_login():
         print(f"✔ Admin '{username}' created. You are now logged in as admin.")
         return username
 
-    # Normal admin login
+    # normal admin login
     username = input("Admin username: ").lower().strip()
     password = input("Admin password: ")
 
@@ -191,12 +177,10 @@ def admin_login():
     print(f"✔ Logged in as admin: {username}")
     return username
 
-# Features accessible to admin
+# admin-only features
 
 def view_pending_requests():
-    """
-    Show all pending signup requests.
-    """
+    """List every pending signup request."""
     data = load_data()
     requests = data.get("signup_requests", {})
 
@@ -216,13 +200,8 @@ def view_pending_requests():
 
 
 def approve_request(admin_username: str):
-    """
-    Approve a pending signup request:
-    - Create a real user in data["users"].
-    - Mark request as approved.
-    """
+    """Approve a request: make a real user, mark the request approved."""
     data = load_data()
-
 
     view_pending_requests()
 
@@ -241,7 +220,7 @@ def approve_request(admin_username: str):
         print(f"⚠️ This request is already {req.get('status')}")
         return
 
-    # Convert pending request to a real user
+    # turn the pending request into a real user
     user_id = str(uuid.uuid4())
     data["users"][req_username] = {
         "user_id": user_id,
@@ -255,15 +234,13 @@ def approve_request(admin_username: str):
         "grades": []
     }
 
-    #making every user an admin after their request is approved
-
-    # Automatically making every approved user an admin
+    # every approved user becomes an admin
     if req_username not in data["admins"]:
         data["admins"].append(req_username)
     del data["signup_requests"][req_username]
     save_data(data)
 
-    # Marking request as approved
+    # mark the request approved
     req["status"] = "approved"
     req["approved_by"] = admin_username
     req["approved_at"] = datetime.utcnow().isoformat()
@@ -273,10 +250,7 @@ def approve_request(admin_username: str):
 
 
 def deny_request(admin_username: str):
-    """
-    Deny a pending signup request:
-    - Mark request as denied.
-    """
+    """Deny a pending signup request."""
     data = load_data()
 
     if not is_admin(data, admin_username):
@@ -307,7 +281,7 @@ def deny_request(admin_username: str):
     save_data(data)
     print(f"✔ Request for '{req_username}' denied.")
 
-    #Making user an admin
+# make a user an admin
 def make_user_admin(admin_username: str):
     data = load_data()
 
@@ -320,7 +294,6 @@ def make_user_admin(admin_username: str):
 
     print("\n=== MAKE USER AN ADMIN ===")
 
-    # Show all users
     if not users:
         print("No users found.")
         return
@@ -343,20 +316,15 @@ def make_user_admin(admin_username: str):
         print(f"⚠️ {target} is already an admin")
         return
 
-    # Add to admins list
     admins.append(target)
     data["admins"] = admins
     save_data(data)
 
     print(f"✔ {target} is now an admin and can approve/deny requests.")
 
-# Normal user login
+# normal user login
 def user_login():
-    """
-    Normal user login:
-    - Works with users in data["users"].
-    - Compatible with passwords hashed by the original signup code.
-    """
+    """Plain user login against data["users"]."""
     data = load_data()
 
     print("\n=== USER LOGIN ===")
@@ -380,15 +348,9 @@ def user_login():
     admin_tag = " [ADMIN]" if is_admin(data, username) else ""
     print(f"✔ Logged in as: {username}{admin_tag}")
 
-# Main menu
+# main menu
 def main_menu():
-    """
-    Text menu for:
-    - Signup with admin approval
-    - User login
-    - Admin login
-    - Admin actions (view, approve, deny requests)
-    """
+    """Text menu: view / approve / deny requests."""
     while True:
         print("\n=== MAIN MENU ===")
         print("1. View pending requests (admin only)")
