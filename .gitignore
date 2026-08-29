@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+
+# machine-local developer-mode toggle, written at runtime
+data/users/settings.json

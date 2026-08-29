@@ -21,8 +21,8 @@
   --shadow:   rgba(43,39,31,.14);
 }
 
-/* dark mode - switched on automatically when every appliance is off
-   (the house is "asleep"). Just redefines the colour tokens. */
+/* dark mode - switched on automatically when the LIGHT is off
+   (the room is dark). Just redefines the colour tokens. */
 body.dark {
   --paper:    #1e1c16;
   --paper-2:  #262218;
@@ -309,6 +309,46 @@ header {
 }
 .device button:hover { background: var(--accent); border-color: var(--accent); color: #fdf6ea; }
 
+/* -----------------------------------------------------------
+   each device gets its OWN look + motion when it's on
+----------------------------------------------------------- */
+.device-icon { transition: background .3s ease, box-shadow .3s ease, transform .3s ease; }
+
+/* LIGHT - warm glow while on, a quick flicker the moment it switches on */
+#lightCard.on .device-icon {
+  background: radial-gradient(circle at 50% 38%, #ffe7a6, #f4c368);
+  box-shadow: 0 0 20px 3px rgba(244,195,104,.7);
+}
+.device.anim-flick .device-icon { animation: flick .5s ease both; }
+@keyframes flick {
+  0%, 100% { opacity: 1; }
+  15% { opacity: .3; }
+  35% { opacity: .95; }
+  55% { opacity: .35; }
+  75% { opacity: .85; }
+}
+
+/* FAN - blades keep spinning the whole time it's on */
+#fanCard.on .device-icon { animation: spin 1.05s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* DOOR - the bolt clunks across when it locks or unlocks */
+#doorCard.locked .device-icon   { background: rgba(164,67,47,.16); }
+#doorCard:not(.locked) .device-icon { background: rgba(79,107,67,.18); }
+.device.anim-clunk .device-icon { animation: clunk .42s ease both; }
+@keyframes clunk {
+  0%   { transform: translateX(0) rotate(0); }
+  30%  { transform: translateX(-5px) rotate(-9deg); }
+  60%  { transform: translateX(4px) rotate(7deg); }
+  100% { transform: translateX(0) rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #fanCard.on .device-icon,
+  .device.anim-flick .device-icon,
+  .device.anim-clunk .device-icon { animation: none; }
+}
+
 .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .quick button {
   height: 42px; border: 1px solid var(--line); border-radius: 7px;
@@ -321,6 +361,11 @@ header {
   gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 15px;
 }
 .pending:last-child { border-bottom: none; }
+.devmode {
+  display: flex; align-items: flex-start; gap: 8px; margin-top: 10px;
+  font-size: 12px; color: var(--ink-soft); cursor: pointer;
+}
+.devmode input { margin-top: 2px; }
 .pending .btns { display: flex; gap: 6px; }
 .mini { font-size: 12px; padding: 5px 10px; border-radius: 5px; border: 1px solid; }
 .mini.yes { color: #fdf6ea; background: var(--good); border-color: #3b5231; }

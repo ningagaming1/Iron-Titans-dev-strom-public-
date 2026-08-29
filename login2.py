@@ -30,6 +30,7 @@ from signup import password_funct, password_matches
 DATA_DIR = os.path.join("data", "users")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 PENDING_FILE = os.path.join(DATA_DIR, "pending.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
 # how many wrong passwords before we lock an account
 MAX_TRIES = 5
@@ -38,8 +39,33 @@ MAX_TRIES = 5
 # --------------
 # While True: a new account skips the waiting list and can log in
 # straight away (no admin approval needed). Handy while we build.
-# Flip to False for the "real" behaviour before the final demo.
-DEV_MODE = True
+# While False: sign-ups go to pending.json and an admin has to
+# approve them - the flow you test on the Invites tab.
+#
+# It is TOGGLEABLE, so you don't have to edit this file:
+#   * initial value comes from the SMARTHOME_DEV_MODE env var
+#     (1/true/yes/on -> True), otherwise from data/users/settings.json,
+#     otherwise the default below
+#   * an admin can flip it at runtime (Invites tab, or POST /api/devmode);
+#     set_dev_mode() remembers the choice in settings.json
+DEV_MODE_DEFAULT = False
+
+
+def _read_dev_mode():
+    env = os.environ.get("SMARTHOME_DEV_MODE")
+    if env is not None:
+        return env.strip().lower() in ("1", "true", "yes", "on")
+    return bool(_load(SETTINGS_FILE).get("dev_mode", DEV_MODE_DEFAULT))
+
+
+def set_dev_mode(on):
+    """Flip developer mode on/off at runtime and remember it in settings.json."""
+    global DEV_MODE
+    DEV_MODE = bool(on)
+    settings = _load(SETTINGS_FILE)
+    settings["dev_mode"] = DEV_MODE
+    _save(SETTINGS_FILE, settings)
+    return DEV_MODE
 
 
 def _safe(user):
@@ -87,6 +113,10 @@ def load_users():
 
 def load_pending():
     return _load(PENDING_FILE)
+
+
+# read the remembered / env-provided value now that the helpers exist
+DEV_MODE = _read_dev_mode()
 
 
 # -------------------------------------------------------------

@@ -55,18 +55,18 @@
     <div class="strip"><h2>Your devices</h2><span id="deviceCount">0 on</span></div>
 
     <section class="devices">
-      <article class="device">
-        <div class="device-top"><div class="device-icon">💡</div><div class="state" id="lightState">OFF</div></div>
+      <article class="device" id="lightCard">
+        <div class="device-top"><div class="device-icon" id="lightIcon">💡</div><div class="state" id="lightState">OFF</div></div>
         <h3>Living Room Light</h3><p>Living Room</p>
         <button id="lightBtn">Turn On</button>
       </article>
-      <article class="device">
-        <div class="device-top"><div class="device-icon">🌀</div><div class="state" id="fanState">OFF</div></div>
+      <article class="device" id="fanCard">
+        <div class="device-top"><div class="device-icon" id="fanIcon">🌀</div><div class="state" id="fanState">OFF</div></div>
         <h3>Ceiling Fan</h3><p>Living Room</p>
         <button id="fanBtn">Turn On</button>
       </article>
-      <article class="device">
-        <div class="device-top"><div class="device-icon">🚪</div><div class="state on" id="doorState">LOCKED</div></div>
+      <article class="device locked" id="doorCard">
+        <div class="device-top"><div class="device-icon" id="doorIcon">🔒</div><div class="state on" id="doorState">LOCKED</div></div>
         <h3>Main Door</h3><p>Entrance</p>
         <button id="doorBtn">Unlock Door</button>
       </article>
@@ -93,6 +93,10 @@
     <section class="panel">
       <h2>People asking to join <button class="textbtn" id="refreshInvites">refresh</button></h2>
       <p class="hint" id="inviteNote">Accept someone and they can log in. Decline drops their request.</p>
+      <label class="devmode">
+        <input type="checkbox" id="devToggle">
+        <span>Developer mode &mdash; new sign-ups are approved automatically (skips this list)</span>
+      </label>
       <div id="pending" style="margin-top:12px;"><div class="empty">loading...</div></div>
     </section>
   </div>

@@ -2,10 +2,9 @@
    dashboard.js - the control panel.
 
    Voice path:
-     * default        -> record a clip, send to /api/voice,
-                         which uses Google Speech-to-Text
-     * no API key     -> fall back to the browser's own speech
-     * neither works  -> mic is disabled, typing still works
+     * browser speech -> the browser's own Web Speech API turns
+                         your words into text
+     * not supported  -> mic is disabled, typing still works
 
    Whatever produces the text, the server's intent.py decides
    what it means and devices.py flips the switch.
@@ -50,18 +49,31 @@ let house = { light: false, fan: false, door_locked: true, activity: [] };
 
 function render(h) {
   if (!h) return;
+  const prev = house;
   house = h;
+
   card("light", h.light);
   card("fan", h.fan);
+
+  // door: bolt icon + label follow the lock state
   $("doorState").textContent = h.door_locked ? "LOCKED" : "UNLOCKED";
   $("doorState").classList.toggle("on", h.door_locked);
   $("doorBtn").textContent = h.door_locked ? "Unlock Door" : "Lock Door";
+  $("doorIcon").textContent = h.door_locked ? "🔒" : "🔓";
+  $("doorCard").classList.toggle("locked", h.door_locked);
+
+  // one-shot animations - fire ONLY when that device actually changed,
+  // so the 5s auto-refresh doesn't keep re-triggering them.
+  if (h.light !== prev.light && h.light) playAnim("lightCard", "flick");
+  if (h.door_locked !== prev.door_locked) playAnim("doorCard", "clunk");
+  // the fan's spin is a continuous CSS animation tied to #fanCard.on
 
   const applianceCount = (h.light ? 1 : 0) + (h.fan ? 1 : 0);
   $("deviceCount").textContent = applianceCount + " on";
 
-  // every appliance off -> the house is asleep -> dark mode
-  document.body.classList.toggle("dark", applianceCount === 0);
+  // the LIGHT is what lights the room - the fan and door don't change
+  // the mood, so turning on the fan no longer brightens the whole page.
+  document.body.classList.toggle("dark", !h.light);
 
   drawLog(h.activity || []);
 }
@@ -69,6 +81,14 @@ function card(name, on) {
   $(name + "State").textContent = on ? "ON" : "OFF";
   $(name + "State").classList.toggle("on", on);
   $(name + "Btn").textContent = on ? "Turn Off" : "Turn On";
+  $(name + "Card").classList.toggle("on", on);
+}
+function playAnim(cardId, name) {
+  const el = $(cardId);
+  if (!el) return;
+  el.classList.remove("anim-flick", "anim-clunk");
+  void el.offsetWidth;               // restart the animation
+  el.classList.add("anim-" + name);
 }
 function drawLog(items) {
   const box = $("log");
@@ -189,10 +209,30 @@ async function decide(path, name) {
 }
 $("refreshInvites").onclick = loadPending;
 
+/* ---- developer mode toggle ---- */
+async function refreshDevMode() {
+  const cfg = await getJSON("/api/config");
+  const on = !!(cfg && cfg.dev_mode);
+  $("devToggle").checked = on;
+  $("inviteNote").textContent = on
+    ? "Developer mode is ON - new sign-ups are approved automatically, so this list stays empty."
+    : "Accept someone and they can log in. Decline drops their request.";
+}
+$("devToggle").onchange = async () => {
+  const data = await post("/api/devmode", { admin: user.username, on: $("devToggle").checked });
+  if (data.offline || !data.ok) {
+    setStatus(data.message || "Could not change developer mode.", true);
+  } else {
+    setStatus(data.message || "");
+  }
+  refreshDevMode();
+  loadPending();
+};
+
 /* ===========================================================
    VOICE
 =========================================================== */
-let voiceMode = "off";            // "google" | "browser" | "off"
+let voiceMode = "off";            // "browser" | "off"
 const browserSpeech = () => window.SpeechRecognition || window.webkitSpeechRecognition;
 
 function micOn(on) {
@@ -200,60 +240,7 @@ function micOn(on) {
   micStatus(on ? "listening... (tap to stop)" : "tap the mic or type");
 }
 
-/* ---- Google path: record a clip, send to /api/voice ---- */
-let recorder = null;
-let chunks = [];
-
-async function googleMic() {
-  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
-
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  } catch (e) {
-    setStatus("Microphone blocked. Click the mic/lock icon in the address bar, allow it, then reload.", true);
-    return;
-  }
-
-  chunks = [];
-  recorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-  recorder.onstart = () => { micOn(true); $("heard").textContent = "listening..."; };
-  recorder.onstop = async () => {
-    micOn(false);
-    stream.getTracks().forEach((t) => t.stop());
-    $("heard").textContent = "thinking...";
-    const b64 = await blobToBase64(new Blob(chunks, { type: "audio/webm" }));
-    const data = await post("/api/voice", { username: user.username, audio: b64 });
-
-    if (!data.ok) {
-      $("heard").textContent = "-";
-      setStatus(data.message || "Voice failed.", true);
-      if (data.need_key && browserSpeech()) {
-        voiceMode = "browser";
-        voiceNote("No Google key - switched to the browser's speech engine.");
-      }
-      return;
-    }
-    $("heard").textContent = data.heard ? '"' + data.heard + '"' : "-";
-    render(data.house);
-    setStatus(data.message || "");
-  };
-
-  recorder.start();
-  // stop on its own after 5s so one tap is enough
-  setTimeout(() => { if (recorder && recorder.state === "recording") recorder.stop(); }, 5000);
-}
-
-function blobToBase64(blob) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(String(reader.result).split(",")[1] || "");
-    reader.readAsDataURL(blob);
-  });
-}
-
-/* ---- browser fallback: Web Speech API ---- */
+/* ---- browser speech: Web Speech API ---- */
 function browserMic() {
   const SR = browserSpeech();
   const rec = new SR();
@@ -281,24 +268,13 @@ function browserMic() {
 }
 
 $("mic").onclick = () => {
-  if (voiceMode === "google") googleMic();
-  else if (voiceMode === "browser") browserMic();
+  if (voiceMode === "browser") browserMic();
 };
 
-async function setupVoice() {
-  const cfg = await getJSON("/api/config");
-  const canRecord = !!(navigator.mediaDevices &&
-                       window.MediaRecorder &&
-                       MediaRecorder.isTypeSupported("audio/webm"));
-
-  if (cfg && cfg.voice && canRecord) {
-    voiceMode = "google";
-    voiceNote("Voice: Google Speech-to-Text");
-  } else if (browserSpeech()) {
+function setupVoice() {
+  if (browserSpeech()) {
     voiceMode = "browser";
-    voiceNote(cfg && cfg.voice
-      ? "Voice: browser engine (this browser can't record audio for Google)."
-      : "Voice: browser engine. Set GOOGLE_API_KEY to use Google Speech-to-Text.");
+    voiceNote("Voice: your browser's speech engine.");
   } else {
     voiceMode = "off";
     $("mic").disabled = true;
@@ -322,16 +298,11 @@ async function refresh() {
     location.replace("index.html");
     return;
   }
-  const cfg = await getJSON("/api/config");
-  if (cfg && cfg.dev_mode) {
-    $("inviteNote").textContent =
-      "Developer mode is ON, so new sign-ups are let in automatically - this list stays empty. " +
-      "Turn DEV_MODE off in login2.py to use invites for real.";
-  }
 })();
 
 setupVoice();
 refresh();
+refreshDevMode();
 loadPending();
 setInterval(refresh, 5000);
 setInterval(loadPending, 8000);

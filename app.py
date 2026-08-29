@@ -5,7 +5,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import login2
 import devices
 import intent
-import voice
 
 # folder this file lives in - so it works no matter which
 # directory you run "python app.py" from
@@ -27,11 +26,11 @@ os.chdir(HERE)
 #    POST /api/pending       {admin}
 #    POST /api/approve       {admin, username}
 #    POST /api/reject        {admin, username}
-#    GET  /api/config                              -> {dev_mode, voice}
+#    POST /api/devmode       {admin, on}           -> toggle developer mode
+#    GET  /api/config                              -> {dev_mode}
 #    GET  /api/devices                             -> the whole house
 #    POST /api/devices/set   {username, device, value}
 #    POST /api/command       {username, text}      -> text -> intent -> house
-#    POST /api/voice         {username, audio}     -> audio -> Google -> intent
 #    POST /api/activity/clear {username}
 # =============================================================
 
@@ -107,7 +106,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(204)
             self.end_headers()
         elif route == "/api/config":
-            self._send_json({"dev_mode": login2.DEV_MODE, "voice": voice.has_key()})
+            self._send_json({"dev_mode": login2.DEV_MODE})
         elif route == "/api/devices":
             self._send_json({"ok": True, "house": devices.get_state()})
         elif route.startswith("/api/"):
@@ -155,6 +154,20 @@ class Handler(BaseHTTPRequestHandler):
             ok, message = login2.reject(username)
             self._send_json({"ok": ok, "message": message})
 
+        elif self.path == "/api/devmode":
+            if not login2.is_admin(admin):
+                self._send_json({"ok": False, "message": "Not an admin."})
+                return
+            on = login2.set_dev_mode(bool(data.get("on")))
+            self._send_json({
+                "ok": True,
+                "dev_mode": on,
+                "message": ("Developer mode is ON - new sign-ups log in "
+                            "straight away." if on else
+                            "Developer mode is OFF - new sign-ups wait for "
+                            "admin approval."),
+            })
+
         # ---- the house ----
         elif self.path == "/api/devices/set":
             device = str(data.get("device", ""))
@@ -170,22 +183,6 @@ class Handler(BaseHTTPRequestHandler):
             parsed = intent.parse(str(data.get("text", "")))
             message, house = devices.apply(parsed, who)
             self._send_json({"ok": parsed["ok"], "message": message, "house": house})
-
-        elif self.path == "/api/voice":
-            # audio clip  ->  Google Speech-to-Text  ->  intent  ->  house
-            ok, text = voice.transcribe(str(data.get("audio", "")))
-            if not ok:
-                self._send_json({
-                    "ok": False,
-                    "need_key": (text == "no-key"),
-                    "message": ("No Google API key set on the server."
-                                if text == "no-key" else text),
-                    "house": devices.get_state(),
-                })
-                return
-            parsed = intent.parse(text)
-            message, house = devices.apply(parsed, who)
-            self._send_json({"ok": True, "heard": text, "message": message, "house": house})
 
         elif self.path == "/api/activity/clear":
             ok, house = devices.clear_activity(who)
@@ -212,9 +209,7 @@ def serve(port=PORT):
     print("  SmartHome is running.")
     print(f"  Open this in your browser:  http://localhost:{port}")
     print("  Keep this window OPEN. Press Ctrl+C to stop.")
-    if not voice.has_key():
-        print("  (voice: no GOOGLE_API_KEY - the page will use the")
-        print("   browser's speech engine instead)")
+    print("  (voice uses the browser's own speech engine - Chrome or Edge)")
     print("=" * 48 + "\n")
     try:
         server.serve_forever()

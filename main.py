@@ -86,7 +86,7 @@ def check_environment():
     print(f"  python {sys.version.split()[0]}  ok")
 
     needed = ["app.py", "login2.py", "signup.py", "devices.py",
-              "intent.py", "voice.py", "seed.py", "web"]
+              "intent.py", "seed.py", "web"]
     missing = [n for n in needed if not os.path.exists(os.path.join(HERE, n))]
     if missing:
         die("missing project files: " + ", ".join(missing))
@@ -107,6 +107,9 @@ def ensure_database(force_reset=False):
     import seed
 
     os.makedirs(login2.DATA_DIR, exist_ok=True)
+
+    print(f"  developer mode: {'ON (sign-ups auto-approved)' if login2.DEV_MODE else 'OFF (sign-ups need admin approval)'}"
+          f" - toggle it on the Invites tab")
 
     users = login2.load_users()
     if force_reset:
@@ -140,7 +143,7 @@ def self_test():
 
     # -- imports --
     try:
-        import app, login2, signup, devices, intent, voice, seed  # noqa: F401
+        import app, login2, signup, devices, intent, seed  # noqa: F401
         ok("import all modules")
     except Exception as e:
         bad("import all modules", e)
@@ -152,7 +155,7 @@ def self_test():
 
 
 def _run_checks(ok, bad):
-    import login2, signup, devices, intent, voice
+    import login2, signup, devices, intent
 
     # -- password scramble round-trips --
     try:
@@ -197,23 +200,18 @@ def _run_checks(ok, bad):
     except Exception as e:
         bad("devices round-trip", e)
 
-    # -- voice: no key -> a clean, non-crashing answer --
-    try:
-        got, text = voice.transcribe("")
-        assert got is False
-        ok(f"voice.transcribe (no key -> {text!r})")
-    except Exception as e:
-        bad("voice.transcribe", e)
-
-    # -- login: request -> login a fresh account on the sandbox --
+    # -- login: request -> (approve if needed) -> login, on the sandbox --
+    # works whether DEV_MODE is on (auto-approved) or off (needs approve())
     try:
         made, _ = login2.request_account("selftester", "pw123456")
         assert made
+        if "selftester" in login2.load_pending():
+            login2.approve("selftester", approved_by="self-test")
         got, message, _ = login2.login("selftester", "pw123456")
         assert got, message
         bad_try = login2.login("selftester", "nope")[0]
         assert bad_try is False
-        ok("login2.request_account / login")
+        ok("login2.request_account / approve / login")
     except Exception as e:
         bad("login2.login", e)
 

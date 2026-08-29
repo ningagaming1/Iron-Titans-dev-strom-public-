@@ -8,6 +8,27 @@
         "failed_attempts": 0,
         "approved_by": "system",
         "approved_at": "2026-08-28T23:21:34+00:00",
-        "last_login": "2026-08-28T23:47:29+00:00"
+        "last_login": "2026-08-29T04:22:51+00:00"
+    },
+    "user": {
+        "username": "user",
+        "rounds": 72,
+        "fib_check": "c76d7f1f26b3f1f5ea92f9f94f3195edc9e606f160b9f6fbb0804ee25bfd1396",
+        "password": "9e2dba0e6a090d9954b9f639266ab7cd24d456d25e1d02a1dbe9594973ca4e3c",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "dev-mode",
+        "approved_at": "2026-08-29T04:08:36+00:00"
+    },
+    "user1": {
+        "username": "user1",
+        "rounds": 13,
+        "fib_check": "c0509a487a18b003ba05e505419ebb63e57a29158073e381f57160b5c5b86426",
+        "password": "1d52eb45f0d5843b9b73c9f9aa583b23ac3bd3a89fbf58ed99bed62ad4fb74ea",
+        "is_locked": false,
+        "failed_attempts": 0,
+        "approved_by": "admin",
+        "approved_at": "2026-08-29T04:22:58+00:00",
+        "last_login": "2026-08-29T04:23:17+00:00"
     }
 }

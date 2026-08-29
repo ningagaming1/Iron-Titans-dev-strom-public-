@@ -4,24 +4,64 @@
     "door_locked": true,
     "activity": [
         {
-            "text": "admin turned the fan off",
+            "text": "user1 locked the door",
+            "icon": "lock",
+            "at": "09:59"
+        },
+        {
+            "text": "user1 unlocked the door",
+            "icon": "unlock",
+            "at": "09:59"
+        },
+        {
+            "text": "user1 turned the fan off",
             "icon": "fan",
-            "at": "23:56"
+            "at": "09:59"
         },
         {
-            "text": "admin turned the light off",
+            "text": "user1 turned the fan on",
+            "icon": "fan",
+            "at": "09:59"
+        },
+        {
+            "text": "user1 turned the light off",
             "icon": "light",
-            "at": "23:56"
+            "at": "09:59"
         },
         {
-            "text": "admin turned the light on",
+            "text": "user1 turned the light on",
             "icon": "light",
-            "at": "23:56"
+            "at": "09:59"
         },
         {
-            "text": "admin cleared the activity log",
-            "icon": "info",
-            "at": "23:49"
+            "text": "user1 turned the fan off",
+            "icon": "fan",
+            "at": "09:58"
+        },
+        {
+            "text": "user1 turned the fan on",
+            "icon": "fan",
+            "at": "09:58"
+        },
+        {
+            "text": "user1 turned the light off",
+            "icon": "light",
+            "at": "09:58"
+        },
+        {
+            "text": "user1 turned the light on",
+            "icon": "light",
+            "at": "09:58"
+        },
+        {
+            "text": "user1 turned the fan off",
+            "icon": "fan",
+            "at": "09:58"
+        },
+        {
+            "text": "user1 turned the fan on",
+            "icon": "fan",
+            "at": "09:58"
         }
     ]
 }
