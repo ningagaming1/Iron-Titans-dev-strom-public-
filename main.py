@@ -326,18 +326,6 @@ def main(argv=None):
             traceback.print_exc()
         die(f"startup failed: {e}")
 
-    line("voice")
-    try:
-        import voice
-        st = voice.status()
-        if st["ready"]:
-            print(f"  offline speech ready (Vosk + Piper, pitch x{st['pitch']})")
-        else:
-            print(f"  offline speech OFF - {st['hint']}")
-            print("  the browser's own speech engine is used until then")
-    except Exception as e:
-        print(f"  voice module unavailable: {e}")
-
     line("result")
     if failures:
         print(f"  {len(failures)} self-test(s) FAILED: {', '.join(failures)}")

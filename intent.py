@@ -1,11 +1,13 @@
 import re
 
-# intent.py - plain english -> a clear instruction.
+# =============================================================
+#  intent.py  ->  "plain English  ->   clear instruction"
+# -------------------------------------------------------------
 # reads a sentence, decides what the person wants, touches no device.
-#   parse("switch off the fan")
-#     -> {"ok": True, "action": "off", "targets": ["fan"], "say": ...}
-#   parse("dim the light to 40 percent")
-#     -> {"ok": True, "action": "level", "targets": ["light"], "level": 40, ...}
+# parse("switch off the fan")
+#   -> {"ok": True, "action": "off", "targets": ["fan"], "say": ...}
+# parse("dim the light to 40 percent")
+#   -> {"ok": True, "action": "level", "targets": ["light"], "level": 40, ...}
 # devices.apply() takes that dict and flips things.
 #
 # parse() takes an optional `catalog` (from devices.catalog()) so it can
